@@ -45,21 +45,21 @@ fun DashboardScreen() {
         modifier = Modifier
             .fillMaxSize()
             .background(backgroundColor)
-            .padding(20.dp)
+            .padding(20.dp),
     ) {
         Text(
             text = "Resumen Financiero",
             color = textColor,
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 24.dp, bottom = 24.dp)
+            modifier = Modifier.padding(top = 24.dp, bottom = 24.dp),
         )
 
         // Tarjeta Principal (Datos que vendrían de la API)
         Card(
             colors = CardDefaults.cardColors(containerColor = cardColor),
             shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
                 Text(text = "Total Gastado (Semana)", color = textMuted, fontSize = 14.sp)
@@ -68,7 +68,7 @@ fun DashboardScreen() {
                     text = "$${resumen["total_semana"]}", 
                     color = textColor, 
                     fontSize = 36.sp, 
-                    fontWeight = FontWeight.ExtraBold
+                    fontWeight = FontWeight.ExtraBold,
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -78,7 +78,7 @@ fun DashboardScreen() {
                         text = "$${resumen["gastos_hormiga"]}", 
                         color = dangerRed, 
                         fontSize = 14.sp, 
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
                     )
                 }
             }
@@ -90,7 +90,7 @@ fun DashboardScreen() {
             text = "Transacciones Locales", 
             color = textColor, 
             fontSize = 18.sp, 
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.SemiBold,
         )
         
         Spacer(modifier = Modifier.height(16.dp))
@@ -109,7 +109,7 @@ fun DashboardScreen() {
                 gastos = database.obtenerGastosLocales().toList() // Refrescar lista
             },
             modifier = Modifier.padding(top = 16.dp).align(Alignment.CenterHorizontally),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
         ) {
             Text("Simular Intercepción de Gasto")
         }
@@ -121,12 +121,12 @@ fun GastoItem(gasto: Gasto, cardColor: Color, textColor: Color) {
     Card(
         colors = CardDefaults.cardColors(containerColor = cardColor),
         shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
             modifier = Modifier.padding(16.dp).fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(text = gasto.descripcion, color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
             Text(text = "-$${gasto.monto}", color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Bold)
