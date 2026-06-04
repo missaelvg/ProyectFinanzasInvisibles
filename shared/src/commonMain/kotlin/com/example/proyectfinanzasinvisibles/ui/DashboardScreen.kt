@@ -1,6 +1,5 @@
 package com.example.proyectfinanzasinvisibles.ui
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,21 +19,19 @@ import com.example.proyectfinanzasinvisibles.network.GastoRepository
 
 @Composable
 fun DashboardScreen() {
-    // Inicialización simple de dependencias (En una app real usaríamos DI)
-    val database = remember { GastoDatabase() }
-    val repository = remember { GastoRepository(database) }
+    // Inicialización de dependencias
+    val repository = remember { GastoRepository(GastoDatabase) }
     
     // Estados de la UI
-    var gastos by remember { mutableStateOf(database.obtenerGastosLocales()) }
+    var gastos by remember { mutableStateOf(GastoDatabase.obtenerGastosLocales()) }
     var resumen by remember { mutableStateOf(mapOf("total_semana" to 0.0, "gastos_hormiga" to 0.0)) }
 
-    // Simulación de carga de datos (Consumo de API y Local)
+    // Carga inicial
     LaunchedEffect(Unit) {
         resumen = repository.fetchResumenDesdeAPI()
-        gastos = repository.sincronizarYObtenerGastos()
     }
 
-    // Colores Formales
+    // Colores
     val backgroundColor = Color(0xFF0F172A)
     val cardColor = Color(0xFF1E293B)
     val textColor = Color(0xFFF8FAFC)
@@ -55,7 +52,7 @@ fun DashboardScreen() {
             modifier = Modifier.padding(top = 24.dp, bottom = 24.dp),
         )
 
-        // Tarjeta Principal (Datos que vendrían de la API)
+        // Tarjeta de Saldo (API)
         Card(
             colors = CardDefaults.cardColors(containerColor = cardColor),
             shape = RoundedCornerShape(16.dp),
@@ -73,7 +70,7 @@ fun DashboardScreen() {
 
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = "Gastos Hormiga Detectados: ", color = textMuted, fontSize = 14.sp)
+                    Text(text = "Gastos Hormiga: ", color = textMuted, fontSize = 14.sp)
                     Text(
                         text = "$${resumen["gastos_hormiga"]}", 
                         color = dangerRed, 
@@ -95,23 +92,31 @@ fun DashboardScreen() {
         
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Lista de Gastos (Almacenamiento Local)
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Lista de Gastos - Con weight(1f) para que sea scrollable y no empuje el botón
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             items(gastos) { gasto ->
                 GastoItem(gasto, cardColor, textColor)
             }
         }
         
-        // Botón para simular interacción Front -> Back -> Local
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Botón de Interacción
         Button(
             onClick = {
-                repository.agregarNuevoGasto("Nueva Compra", 50.0)
-                gastos = database.obtenerGastosLocales().toList() // Refrescar lista
+                val nuevoId = gastos.size + 1
+                repository.agregarNuevoGasto("Compra #$nuevoId", 50.0)
+                // IMPORTANTE: Forzamos el refresco creando una nueva instancia de lista
+                gastos = GastoDatabase.obtenerGastosLocales()
             },
-            modifier = Modifier.padding(top = 16.dp).align(Alignment.CenterHorizontally),
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
         ) {
-            Text("Simular Intercepción de Gasto")
+            Text("Simular Intercepción de Gasto", fontWeight = FontWeight.Bold)
         }
     }
 }
