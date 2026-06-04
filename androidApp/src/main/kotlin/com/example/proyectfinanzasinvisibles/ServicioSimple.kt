@@ -1,4 +1,4 @@
-package com.example.proyectfinanzasinvisibles.service
+package com.example.proyectfinanzasinvisibles
 
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
