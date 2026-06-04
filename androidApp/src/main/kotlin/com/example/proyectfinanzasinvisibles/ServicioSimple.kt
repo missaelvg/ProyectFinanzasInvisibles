@@ -4,7 +4,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 
-// 1. SERVICIO SIMPLE: Se ejecuta en segundo plano para leer notificaciones bancarias
+// SERVICIO SIMPLE: Se ejecuta en segundo plano para leer notificaciones bancarias
 class NotificationReaderService : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
