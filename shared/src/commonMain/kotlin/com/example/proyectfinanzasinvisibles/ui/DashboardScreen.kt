@@ -19,16 +19,17 @@ import com.example.proyectfinanzasinvisibles.network.GastoRepository
 
 @Composable
 fun DashboardScreen() {
-    // Inicialización de dependencias
     val repository = remember { GastoRepository(GastoDatabase) }
     
-    // Estados de la UI
+    // Estado de la lista de gastos
     var gastos by remember { mutableStateOf(GastoDatabase.obtenerGastosLocales()) }
-    var resumen by remember { mutableStateOf(mapOf("total_semana" to 0.0, "gastos_hormiga" to 0.0)) }
-
-    // Carga inicial
-    LaunchedEffect(Unit) {
-        resumen = repository.fetchResumenDesdeAPI()
+    
+    // Cálculo dinámico del Resumen basado en la lista actual
+    // Esto hace que el Front-end reaccione a cualquier cambio en los datos
+    val totalGastado = remember(gastos) { gastos.sumOf { it.monto } }
+    val totalHormiga = remember(gastos) { 
+        gastos.filter { it.categoria == "Antojos" || it.categoria == "Café" || it.categoria == "General" }
+              .sumOf { it.monto } 
     }
 
     // Colores
@@ -52,7 +53,7 @@ fun DashboardScreen() {
             modifier = Modifier.padding(top = 24.dp, bottom = 24.dp),
         )
 
-        // Tarjeta de Saldo (API)
+        // Tarjeta de Saldo DINÁMICA
         Card(
             colors = CardDefaults.cardColors(containerColor = cardColor),
             shape = RoundedCornerShape(16.dp),
@@ -61,8 +62,9 @@ fun DashboardScreen() {
             Column(modifier = Modifier.padding(24.dp)) {
                 Text(text = "Total Gastado (Semana)", color = textMuted, fontSize = 14.sp)
                 Spacer(modifier = Modifier.height(8.dp))
+                // Aquí usamos el valor calculado dinámicamente
                 Text(
-                    text = "$${resumen["total_semana"]}", 
+                    text = "$${totalGastado}", 
                     color = textColor, 
                     fontSize = 36.sp, 
                     fontWeight = FontWeight.ExtraBold,
@@ -70,9 +72,9 @@ fun DashboardScreen() {
 
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = "Gastos Hormiga: ", color = textMuted, fontSize = 14.sp)
+                    Text(text = "Gastos Hormiga Detectados: ", color = textMuted, fontSize = 14.sp)
                     Text(
-                        text = "$${resumen["gastos_hormiga"]}", 
+                        text = "$${totalHormiga}", 
                         color = dangerRed, 
                         fontSize = 14.sp, 
                         fontWeight = FontWeight.Bold,
@@ -84,7 +86,7 @@ fun DashboardScreen() {
         Spacer(modifier = Modifier.height(32.dp))
 
         Text(
-            text = "Transacciones Locales", 
+            text = "Transacciones Recientes", 
             color = textColor, 
             fontSize = 18.sp, 
             fontWeight = FontWeight.SemiBold,
@@ -92,7 +94,7 @@ fun DashboardScreen() {
         
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Lista de Gastos - Con weight(1f) para que sea scrollable y no empuje el botón
+        // Lista de Gastos
         LazyColumn(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -104,13 +106,12 @@ fun DashboardScreen() {
         
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Botón de Interacción
+        // Botón de Interacción: Al presionar, se actualiza la lista y por ende el resumen
         Button(
             onClick = {
                 val nuevoId = gastos.size + 1
                 repository.agregarNuevoGasto("Compra #$nuevoId", 50.0)
-                // IMPORTANTE: Forzamos el refresco creando una nueva instancia de lista
-                gastos = GastoDatabase.obtenerGastosLocales()
+                gastos = GastoDatabase.obtenerGastosLocales() // Actualiza la lista
             },
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(12.dp),
@@ -133,7 +134,10 @@ fun GastoItem(gasto: Gasto, cardColor: Color, textColor: Color) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(text = gasto.descripcion, color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Column {
+                Text(text = gasto.descripcion, color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                Text(text = gasto.categoria, color = Color(0xFF94A3B8), fontSize = 12.sp)
+            }
             Text(text = "-$${gasto.monto}", color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
     }
