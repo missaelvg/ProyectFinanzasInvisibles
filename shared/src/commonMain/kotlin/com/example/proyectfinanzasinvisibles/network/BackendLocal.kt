@@ -6,3 +6,4 @@ suspend fun postCategorizarGasto(textoBruto: String): String {
     val resultado = api.analizarTexto(textoBruto)
     return resultado
 }
+
