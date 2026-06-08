@@ -71,7 +71,7 @@ fun AnalisisScreen() {
             onClick = {
                 scope.launch {
                     resultado = "Procesando con Gemini AI..."
-                    val respuesta = postCategorizarGasto("Compra en OXXO por $45.00 MXN")
+                    val respuesta = postCategorizarGasto("Compra en OXXO por \$45.00 MXN")
                     resultado = respuesta
                 }
             },
