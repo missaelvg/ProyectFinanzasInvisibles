@@ -2,8 +2,7 @@ package com.example.proyectfinanzasinvisibles.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -13,31 +12,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.proyectfinanzasinvisibles.data.Gasto
 import com.example.proyectfinanzasinvisibles.data.GastoDatabase
-import com.example.proyectfinanzasinvisibles.network.GastoRepository
 
 @Composable
 fun DashboardScreen() {
-    val repository = remember { GastoRepository(GastoDatabase) }
+    val gastos by remember { mutableStateOf(GastoDatabase.obtenerGastosLocales()) }
     
-    // Estado de la lista de gastos
-    var gastos by remember { mutableStateOf(GastoDatabase.obtenerGastosLocales()) }
-    
-    // Cálculo dinámico del Resumen basado en la lista actual
-    // Esto hace que el Front-end reaccione a cualquier cambio en los datos
     val totalGastado = remember(gastos) { gastos.sumOf { it.monto } }
     val totalHormiga = remember(gastos) { 
         gastos.filter { it.categoria == "Antojos" || it.categoria == "Café" || it.categoria == "General" }
               .sumOf { it.monto } 
     }
 
-    // Colores
-    val backgroundColor = Color(0xFF0F172A)
-    val cardColor = Color(0xFF1E293B)
-    val textColor = Color(0xFFF8FAFC)
-    val textMuted = Color(0xFF94A3B8)
-    val dangerRed = Color(0xFFEF4444)
+    val backgroundColor = Color(0xFF0F1115)
+    val cardColor = Color(0xFF1C1F26)
+    val accentBlue = Color(0xFF3B82F6)
 
     Column(
         modifier = Modifier
@@ -45,100 +34,112 @@ fun DashboardScreen() {
             .background(backgroundColor)
             .padding(20.dp),
     ) {
+        // Header
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(accentBlue, CircleShape)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text("Asistente Silencioso", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Activo", color = accentBlue, fontSize = 12.sp)
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            Box(modifier = Modifier.size(40.dp).background(Color.Gray.copy(alpha = 0.3f), CircleShape))
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+        Text("DASHBOARD", color = accentBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         Text(
-            text = "Resumen Financiero",
-            color = textColor,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 24.dp, bottom = 24.dp),
+            text = "Resumen de Fugas\nSemanales",
+            color = Color.White,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.ExtraBold,
+            lineHeight = 34.sp
         )
 
-        // Tarjeta de Saldo DINÁMICA
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Tarjeta Gasto Hormiga
         Card(
             colors = CardDefaults.cardColors(containerColor = cardColor),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(20.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
-                Text(text = "Total Gastado (Semana)", color = textMuted, fontSize = 14.sp)
-                Spacer(modifier = Modifier.height(8.dp))
-                // Aquí usamos el valor calculado dinámicamente
-                Text(
-                    text = "$${totalGastado}", 
-                    color = textColor, 
-                    fontSize = 36.sp, 
-                    fontWeight = FontWeight.ExtraBold,
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = "Gastos Hormiga Detectados: ", color = textMuted, fontSize = 14.sp)
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    Text(text = "GASTO HORMIGA", color = Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Box(modifier = Modifier.size(12.dp).background(accentBlue, RoundedCornerShape(4.dp)))
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.Bottom) {
                     Text(
-                        text = "$${totalHormiga}", 
-                        color = dangerRed, 
-                        fontSize = 14.sp, 
+                        text = "$${totalHormiga.toInt()}", 
+                        color = Color.White, 
+                        fontSize = 42.sp, 
                         fontWeight = FontWeight.Bold,
                     )
+                    Text(
+                        text = " MXN", 
+                        color = Color.Gray, 
+                        fontSize = 16.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+                Text(text = "Acumulado semanal en gastos menores", color = Color.Gray, fontSize = 12.sp)
+                Spacer(modifier = Modifier.height(16.dp))
+                LinearProgressIndicator(
+                    progress = { (totalHormiga / 1000f).toFloat().coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().height(6.dp),
+                    color = accentBlue,
+                    trackColor = Color.Gray.copy(alpha = 0.2f),
+                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Tarjeta Detección Inteligente
+        Card(
+            colors = CardDefaults.cardColors(containerColor = cardColor),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(8.dp).background(accentBlue, CircleShape))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "DETECCIÓN INTELIGENTE", color = Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Se detectó un posible gasto innecesario de $45 en OXXO",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(text = "hace 10 min", color = Color.Gray, fontSize = 12.sp)
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { },
+                    colors = ButtonDefaults.buttonColors(containerColor = accentBlue),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.height(40.dp)
+                ) {
+                    Text("¿Es necesario?", color = Color.White, fontSize = 13.sp)
                 }
             }
         }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Text(
-            text = "Transacciones Recientes", 
-            color = textColor, 
-            fontSize = 18.sp, 
-            fontWeight = FontWeight.SemiBold,
-        )
         
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Lista de Gastos
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            items(gastos) { gasto ->
-                GastoItem(gasto, cardColor, textColor)
-            }
-        }
+        Spacer(modifier = Modifier.height(20.dp))
         
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Botón de Interacción: Al presionar, se actualiza la lista y por ende el resumen
-        Button(
-            onClick = {
-                val nuevoId = gastos.size + 1
-                repository.agregarNuevoGasto("Compra #$nuevoId", 50.0)
-                gastos = GastoDatabase.obtenerGastosLocales() // Actualiza la lista
-            },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
-        ) {
-            Text("Simular Intercepción de Gasto", fontWeight = FontWeight.Bold)
-        }
-    }
-}
-
-@Composable
-fun GastoItem(gasto: Gasto, cardColor: Color, textColor: Color) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = cardColor),
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column {
-                Text(text = gasto.descripcion, color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                Text(text = gasto.categoria, color = Color(0xFF94A3B8), fontSize = 12.sp)
-            }
-            Text(text = "-$${gasto.monto}", color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        // Simulación de Gráfico
+        Text("Distribución de Gastos", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+             Text("$${totalGastado.toInt()}", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

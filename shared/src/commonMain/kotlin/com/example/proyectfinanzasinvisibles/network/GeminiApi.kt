@@ -8,3 +8,14 @@ class GeminiApi {
         return "Categoría: Antojos, Monto: $45.00"
     }
 }
+
+/**
+ * Función global para facilitar el acceso desde la UI, 
+ * simulando una llamada a la API de Gemini.
+ */
+suspend fun postCategorizarGasto(texto: String): String {
+    val api = GeminiApi()
+    // Simulamos un retraso de red
+    kotlinx.coroutines.delay(1500)
+    return api.analizarTexto(texto)
+}
