@@ -19,6 +19,7 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.firestore)
+    implementation(libs.firebase.auth)
 
     implementation(libs.androidx.activity.compose)
     implementation(libs.compose.ui)

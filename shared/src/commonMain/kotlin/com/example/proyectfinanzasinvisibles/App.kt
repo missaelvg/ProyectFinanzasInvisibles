@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -17,12 +18,12 @@ import com.example.proyectfinanzasinvisibles.ui.OnboardingScreen
 import com.example.proyectfinanzasinvisibles.ui.theme.InvisibleInsightsTheme
 
 enum class Screen {
-    Onboarding, Home, History, Alerts, Goals
+    Onboarding, Home, History, Alerts, Goals, Profile
 }
 
 @Composable
 @Preview
-fun App() {
+fun App(onLogout: () -> Unit = {}) {
     InvisibleInsightsTheme {
         var currentScreen by remember { mutableStateOf(Screen.Onboarding) }
 
@@ -48,16 +49,16 @@ fun App() {
                             label = { Text("Historial") }
                         )
                         NavigationBarItem(
-                            selected = currentScreen == Screen.Alerts,
-                            onClick = { currentScreen = Screen.Alerts },
-                            icon = { Box(Modifier.size(24.dp).background(if (currentScreen == Screen.Alerts) MaterialTheme.colorScheme.primary else Color.Gray, shape = MaterialTheme.shapes.small)) },
-                            label = { Text("Alertas") }
-                        )
-                        NavigationBarItem(
                             selected = currentScreen == Screen.Goals,
                             onClick = { currentScreen = Screen.Goals },
                             icon = { Box(Modifier.size(24.dp).background(if (currentScreen == Screen.Goals) MaterialTheme.colorScheme.primary else Color.Gray, shape = MaterialTheme.shapes.small)) },
                             label = { Text("Metas") }
+                        )
+                        NavigationBarItem(
+                            selected = currentScreen == Screen.Profile,
+                            onClick = { currentScreen = Screen.Profile },
+                            icon = { Box(Modifier.size(24.dp).background(if (currentScreen == Screen.Profile) MaterialTheme.colorScheme.primary else Color.Gray, shape = MaterialTheme.shapes.small)) },
+                            label = { Text("Perfil") }
                         )
                     }
                 }
@@ -73,10 +74,35 @@ fun App() {
                         Screen.History -> HistoryScreen()
                         Screen.Alerts -> AlertsScreen()
                         Screen.Goals -> GoalsScreen()
+                        Screen.Profile -> ProfileScreen(onLogout = onLogout)
                         else -> {}
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun ProfileScreen(onLogout: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Mi Perfil",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        Button(
+            onClick = onLogout,
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+        ) {
+            Text("Cerrar Sesión")
         }
     }
 }
