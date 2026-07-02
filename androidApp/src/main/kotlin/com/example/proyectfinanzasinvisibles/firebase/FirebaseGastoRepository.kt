@@ -20,7 +20,7 @@ class FirebaseGastoRepository {
         }
 
         return try {
-            // TÉCNICA 3: Logging - Registro de inicio para trazabilidad
+            // Logging - Registro de inicio para trazabilidad
             Log.d("FIREBASE_SYNC", "Intentando persistir gasto de: ${gasto.monto} para el usuario: ${currentUser.uid}")
             
             // Creamos un mapa para incluir el ID del usuario
@@ -32,7 +32,7 @@ class FirebaseGastoRepository {
                 "timestamp" to com.google.firebase.Timestamp.now()
             )
 
-            // TÉCNICA 9: Coroutines - Uso de await() para ejecución asíncrona no bloqueante
+            //Coroutines - Uso de await() para ejecución asíncrona no bloqueante
             firestore.collection("gastos_hormiga").add(gastoData).await()
             
             Log.d("FIREBASE_SYNC", "ÉXITO: Gasto sincronizado correctamente.")
