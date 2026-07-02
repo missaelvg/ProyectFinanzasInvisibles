@@ -4,9 +4,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.proyectfinanzasinvisibles.sync.backend.WorkManagerScheduler
+import com.example.proyectfinanzasinvisibles.auth.backend.AuthRepository
+import com.example.proyectfinanzasinvisibles.auth.ui.AuthScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -14,8 +16,21 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         WorkManagerScheduler.programarSincronizacionPeriodica(applicationContext)
 
+        val authRepository = AuthRepository()
+
         setContent {
-            App()
+            var isLoggedIn by remember { mutableStateOf(authRepository.isUserLoggedIn()) }
+
+            if (isLoggedIn) {
+                App(onLogout = {
+                    authRepository.logout()
+                    isLoggedIn = false
+                })
+            } else {
+                AuthScreen(onLoginSuccess = {
+                    isLoggedIn = true
+                })
+            }
         }
     }
 }
