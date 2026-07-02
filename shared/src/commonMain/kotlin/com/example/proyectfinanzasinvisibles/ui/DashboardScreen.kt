@@ -18,6 +18,22 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.proyectfinanzasinvisibles.data.GastoDatabase
+
+@Composable
+fun DashboardScreen() {
+    val gastos by remember { mutableStateOf(GastoDatabase.obtenerGastosLocales()) }
+    
+    val totalGastado = remember(gastos) { gastos.sumOf { it.monto } }
+    val totalHormiga = remember(gastos) { 
+        gastos.filter { it.categoria == "Antojos" || it.categoria == "Café" || it.categoria == "General" }
+              .sumOf { it.monto } 
+    }
+
+    val backgroundColor = Color(0xFF0F1115)
+    val cardColor = Color(0xFF1C1F26)
+    val accentBlue = Color(0xFF3B82F6)
+
 import com.example.proyectfinanzasinvisibles.ui.theme.PrimaryBlue
 
 @Composable
@@ -53,7 +69,22 @@ fun DashboardScreen() {
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
                     )
+                    Text(
+                        text = " MXN", 
+                        color = Color.Gray, 
+                        fontSize = 16.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
                 }
+                Text(text = "Acumulado semanal en gastos menores", color = Color.Gray, fontSize = 12.sp)
+                Spacer(modifier = Modifier.height(16.dp))
+                LinearProgressIndicator(
+                    progress = { (totalHormiga / 1000f).toFloat().coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().height(6.dp),
+                    color = accentBlue,
+                    trackColor = Color.Gray.copy(alpha = 0.2f),
+                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                )
             }
             Box(
                 modifier = Modifier
