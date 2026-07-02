@@ -27,6 +27,7 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.uiToolingPreview)
     debugImplementation(libs.compose.uiTooling)
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
 }
 
 android {

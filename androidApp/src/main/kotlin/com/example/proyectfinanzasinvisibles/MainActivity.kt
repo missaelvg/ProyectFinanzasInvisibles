@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.*
 import androidx.compose.ui.tooling.preview.Preview
+import com.example.proyectfinanzasinvisibles.sync.backend.WorkManagerScheduler
 import com.example.proyectfinanzasinvisibles.auth.backend.AuthRepository
 import com.example.proyectfinanzasinvisibles.auth.ui.AuthScreen
 
@@ -13,6 +14,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        WorkManagerScheduler.programarSincronizacionPeriodica(applicationContext)
 
         val authRepository = AuthRepository()
 
