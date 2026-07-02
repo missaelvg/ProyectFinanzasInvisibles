@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "912540026555",
+    "project_id": "finanzasinvisibles-48c35",
+    "storage_bucket": "finanzasinvisibles-48c35.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:912540026555:android:5965e932011185a9d54b9e",
+        "android_client_info": {
+          "package_name": "com.example.proyectfinanzasinvisibles"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAbNWawfY3i8Kfv2mR7mC8vQEbwxd0wyrU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
