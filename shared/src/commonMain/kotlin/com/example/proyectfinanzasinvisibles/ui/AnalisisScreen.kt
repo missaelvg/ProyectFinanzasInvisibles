@@ -57,7 +57,7 @@ fun AnalisisScreen() {
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "SMS: Compra en OXXO por $45.00 MXN",
+                    text = "SMS: Pago de Netflix por $219.00 MXN",
                     color = textColor,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold
@@ -70,8 +70,8 @@ fun AnalisisScreen() {
         Button(
             onClick = {
                 scope.launch {
-                    resultado = "Procesando con Gemini AI..."
-                    val respuesta = postCategorizarGasto("Compra en OXXO por \$45.00 MXN")
+                    resultado = "Conectando con Gemini API..."
+                    val respuesta = postCategorizarGasto("Pago de Netflix por $219.00 MXN")
                     resultado = respuesta
                 }
             },
@@ -79,7 +79,7 @@ fun AnalisisScreen() {
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = accentBlue)
         ) {
-            Text("Analizar con Gemini AI", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text("Analizar con Gemini API", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         }
 
         Spacer(modifier = Modifier.height(32.dp))
