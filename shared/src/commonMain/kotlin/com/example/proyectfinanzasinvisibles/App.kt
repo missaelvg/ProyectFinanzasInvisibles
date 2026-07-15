@@ -15,10 +15,11 @@ import com.example.proyectfinanzasinvisibles.ui.DashboardScreen
 import com.example.proyectfinanzasinvisibles.ui.HistoryScreen
 import com.example.proyectfinanzasinvisibles.ui.GoalsScreen
 import com.example.proyectfinanzasinvisibles.ui.OnboardingScreen
+import com.example.proyectfinanzasinvisibles.ui.AnalisisScreen
 import com.example.proyectfinanzasinvisibles.ui.theme.InvisibleInsightsTheme
 
 enum class Screen {
-    Onboarding, Home, History, Alerts, Goals, Profile
+    Onboarding, Home, History, Alerts, Goals, Analisis, Profile
 }
 
 @Composable
@@ -55,6 +56,24 @@ fun App(onLogout: () -> Unit = {}) {
                             label = { Text("Metas") }
                         )
                         NavigationBarItem(
+                            selected = currentScreen == Screen.Analisis,
+                            onClick = { currentScreen = Screen.Analisis },
+                            icon = {
+                                Box(
+                                    Modifier
+                                        .size(24.dp)
+                                        .background(
+                                            if (currentScreen == Screen.Analisis)
+                                                MaterialTheme.colorScheme.primary
+                                            else
+                                                Color.Gray,
+                                            shape = MaterialTheme.shapes.small
+                                        )
+                                )
+                            },
+                            label = { Text("IA") }
+                        )
+                        NavigationBarItem(
                             selected = currentScreen == Screen.Profile,
                             onClick = { currentScreen = Screen.Profile },
                             icon = { Box(Modifier.size(24.dp).background(if (currentScreen == Screen.Profile) MaterialTheme.colorScheme.primary else Color.Gray, shape = MaterialTheme.shapes.small)) },
@@ -74,6 +93,7 @@ fun App(onLogout: () -> Unit = {}) {
                         Screen.History -> HistoryScreen()
                         Screen.Alerts -> AlertsScreen()
                         Screen.Goals -> GoalsScreen()
+                        Screen.Analisis -> AnalisisScreen()
                         Screen.Profile -> ProfileScreen(onLogout = onLogout)
                         else -> {}
                     }
