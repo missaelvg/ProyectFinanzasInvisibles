@@ -15,10 +15,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.proyectfinanzasinvisibles.ui.theme.PrimaryBlue
+import com.example.proyectfinanzasinvisibles.ui.components.BounceButton
 
 @Composable
 fun GoalsScreen() {
+    val s = LocalStrings.current
     val scrollState = rememberScrollState()
     Column(
         modifier = Modifier
@@ -27,35 +28,38 @@ fun GoalsScreen() {
             .verticalScroll(scrollState)
             .padding(16.dp)
     ) {
-        // Cabecera de metas
+        // Cabecera de metas - Estilo Invisible
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(24.dp).background(PrimaryBlue, CircleShape))
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .background(MaterialTheme.colorScheme.primary, CircleShape)
+                )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "Asistente Silencioso", 
-                        color = Color.White, 
-                        fontSize = 18.sp, 
+                        text = s.silentAssistant, 
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Activo", 
-                        color = PrimaryBlue, 
-                        fontSize = 14.sp, 
-                        fontWeight = FontWeight.Medium
+                        text = s.activeNow, 
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
-                    .background(Color.DarkGray)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
             )
         }
 
@@ -63,40 +67,40 @@ fun GoalsScreen() {
 
         // Tarjeta de resumen mensual de ahorros
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1E)),
-            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(8.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
+            Column(modifier = Modifier.padding(24.dp)) {
                 Text(
-                    text = "RESUMEN MENSUAL", 
-                    color = Color.Gray, 
-                    fontSize = 10.sp, 
-                    fontWeight = FontWeight.Bold
+                    text = s.monthlySummary, 
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     text = "-$1,200", 
-                    color = Color.White, 
-                    fontSize = 40.sp, 
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.displayLarge,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Has evitado $1,200 en fugas este mes. El sistema está optimizando tus gastos.",
-                    color = Color.Gray,
-                    fontSize = 14.sp
+                    text = "${s.leaksAvoided} ${s.systemOptimizing}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(20.dp))
                 LinearProgressIndicator(
                     progress = { 0.6f },
-                    modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
-                    color = PrimaryBlue,
-                    trackColor = Color(0xFF2C2C2E)
+                    modifier = Modifier.fillMaxWidth().height(2.dp).clip(RoundedCornerShape(1.dp)),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -104,151 +108,150 @@ fun GoalsScreen() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Retos Activos", 
-                color = Color.White, 
-                fontSize = 18.sp, 
-                fontWeight = FontWeight.Bold
+                text = s.activeChallenges, 
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground
             )
             Text(
-                text = "VER TODOS", 
-                color = PrimaryBlue, 
-                fontSize = 10.sp, 
+                text = s.viewAll, 
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Tarjeta de progreso de retos específicos
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1E)),
-            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(8.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.size(50.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(
                         progress = { 0.66f },
-                        color = PrimaryBlue,
-                        trackColor = Color(0xFF2C2C2E),
-                        strokeWidth = 4.dp
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        strokeWidth = 3.dp
                     )
                     Text(
                         text = "2/3", 
-                        color = Color.White, 
-                        fontSize = 12.sp, 
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold
                     )
                 }
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(20.dp))
                 Column {
                     Text(
-                        text = "3 días sin gastos hormiga", 
-                        color = Color.White, 
-                        fontSize = 16.sp, 
+                        text = "3 ${s.daysWithoutLeaks}", 
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Meta: $90 proyectados", 
-                        color = Color.Gray, 
-                        fontSize = 14.sp
+                        text = s.projectedGoal, 
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.outline
                     )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         Text(
-            text = "Perspectiva de Ahorro", 
-            color = Color.White, 
-            fontSize = 18.sp, 
-            fontWeight = FontWeight.Bold
+            text = s.savingPerspective, 
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground
         )
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1E)),
-            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(8.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
+            Column(modifier = Modifier.padding(24.dp)) {
                 Text(
-                    text = "Gastos menores semanales", 
-                    color = Color.Gray, 
-                    fontSize = 12.sp
+                    text = s.weeklyMinorExpenses, 
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
                 )
                 Text(
                     text = "$350", 
-                    color = Color(0xFFFFA292), 
-                    fontSize = 28.sp, 
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.displayLarge,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(20.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(PrimaryBlue), 
+                            .background(MaterialTheme.colorScheme.surfaceVariant), 
                         contentAlignment = Alignment.Center
                     ) {
-                        Box(Modifier.size(20.dp).background(Color.White, CircleShape))
+                        Box(Modifier.size(16.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(16.dp))
                     Column {
                         Text(
-                            text = "Equivalencia en servicios", 
-                            color = Color.White, 
-                            fontSize = 14.sp, 
+                            text = s.equivalenceServices, 
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Impacto directo en presupuesto", 
-                            color = Color.Gray, 
-                            fontSize = 12.sp
+                            text = s.directImpactBudget, 
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline
                         )
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = "\"Pequeños cambios constantes generan resultados visibles.\"",
-            color = Color(0xFFD0F8E2),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
+            text = s.constantChangesResult,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
             modifier = Modifier.fillMaxWidth(),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         Text(
-            text = "Metas de Ahorro", 
-            color = Color.White, 
-            fontSize = 18.sp, 
-            fontWeight = FontWeight.Bold
+            text = s.goals, 
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground
         )
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             SavingGoalCard(modifier = Modifier.weight(1f), title = "Viaje Japón", amount = "$45,000", progress = 0.3f)
             SavingGoalCard(modifier = Modifier.weight(1f), title = "MacBook M3", amount = "$32,000", progress = 0.7f)
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(32.dp))
         
-        Button(
+        BounceButton(
             onClick = {},
             modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
         ) {
             Text(
-                text = "+ Crear nueva meta", 
-                fontWeight = FontWeight.Bold
+                text = s.createNewGoal, 
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimary
             )
         }
         
@@ -259,23 +262,24 @@ fun GoalsScreen() {
 @Composable
 fun SavingGoalCard(modifier: Modifier, title: String, amount: String, progress: Float) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1E)),
-        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(8.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
         modifier = modifier
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Box(Modifier.size(16.dp).background(PrimaryBlue, CircleShape))
+                Box(Modifier.size(8.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
             }
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(text = title, color = Color.Gray, fontSize = 12.sp)
-            Text(text = amount, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(text = title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            Text(text = amount, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(12.dp))
             LinearProgressIndicator(
                 progress = { progress },
-                modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
-                color = PrimaryBlue,
-                trackColor = Color(0xFF2C2C2E)
+                modifier = Modifier.fillMaxWidth().height(2.dp).clip(RoundedCornerShape(1.dp)),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
         }
     }
