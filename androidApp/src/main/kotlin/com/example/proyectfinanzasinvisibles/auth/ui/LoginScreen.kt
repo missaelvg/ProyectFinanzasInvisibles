@@ -1,6 +1,8 @@
 package com.example.proyectfinanzasinvisibles.auth.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -15,8 +17,18 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.util.Log
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation as ComposeVisualTransformation
+import com.example.proyectfinanzasinvisibles.R
 import com.example.proyectfinanzasinvisibles.auth.backend.AuthRepository
 import com.example.proyectfinanzasinvisibles.ui.theme.InvisibleInsightsTheme
+import com.example.proyectfinanzasinvisibles.ui.components.BounceButton
+import com.example.proyectfinanzasinvisibles.ui.LocalStrings
+import com.example.proyectfinanzasinvisibles.ui.Language
+import com.example.proyectfinanzasinvisibles.ui.ProvideStrings
 import kotlinx.coroutines.launch
 
 @Composable
@@ -26,97 +38,120 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
     
     var isLogin by remember { mutableStateOf(true) }
     var email by remember { mutableStateOf("") }
+    var nombre by remember { mutableStateOf("") }
+    var apellido by remember { mutableStateOf("") }
+    var fechaNacimiento by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var passwordVisible by remember { mutableStateOf(false) }
-    var confirmPasswordVisible by remember { mutableStateOf(false) }
 
-    InvisibleInsightsTheme {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+    // Use a fixed language for AuthScreen or sync with App level if possible.
+    // Here we provide Spanish as default for Auth.
+    ProvideStrings(Language.ES) {
+        val s = LocalStrings.current
+        
+        InvisibleInsightsTheme {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background
             ) {
-                // Título con estilo de la app
-                Text(
-                    text = "Finanzas Invisibles",
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 2.sp
-                    ),
-                    color = MaterialTheme.colorScheme.primary
-                )
-                
-                Text(
-                    text = if (isLogin) "Bienvenido de nuevo" else "Crea tu cuenta",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(bottom = 32.dp)
-                )
-
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(16.dp)
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.logo_finanzas),
+                        contentDescription = "Logo FI",
+                        modifier = Modifier
+                            .size(80.dp)
+                            .padding(bottom = 24.dp)
+                    )
+
+                    Text(
+                        text = s.appName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                        letterSpacing = 4.sp
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = if (isLogin) s.login else s.initialize,
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.padding(bottom = 40.dp)
+                    )
+
                     Column(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        OutlinedTextField(
+                        if (!isLogin) {
+                            StealthTextField(
+                                value = nombre,
+                                onValueChange = { nombre = it },
+                                label = s.name
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            StealthTextField(
+                                value = apellido,
+                                onValueChange = { apellido = it },
+                                label = s.surname
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            StealthTextField(
+                                value = fechaNacimiento,
+                                onValueChange = { 
+                                    if (it.length <= 8) {
+                                        fechaNacimiento = it.filter { char -> char.isDigit() }
+                                    }
+                                },
+                                label = s.birthDate,
+                                visualTransformation = DateTransformation(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
+
+                        StealthTextField(
                             value = email,
                             onValueChange = { email = it },
-                            label = { Text("Correo Electrónico") },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                            singleLine = true
+                            label = s.email,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        OutlinedTextField(
+                        StealthTextField(
                             value = password,
                             onValueChange = { password = it },
-                            label = { Text("Contraseña") },
-                            modifier = Modifier.fillMaxWidth(),
+                            label = s.password,
                             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                            shape = RoundedCornerShape(12.dp),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                            singleLine = true,
                             trailingIcon = {
-                                val image = if (passwordVisible) "Ocultar" else "Mostrar"
                                 TextButton(onClick = { passwordVisible = !passwordVisible }) {
-                                    Text(image, style = MaterialTheme.typography.bodySmall)
+                                    Text(
+                                        if (passwordVisible) "OCULTAR" else "MOSTRAR",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.outline
+                                    )
                                 }
                             }
                         )
 
                         if (!isLogin) {
                             Spacer(modifier = Modifier.height(16.dp))
-                            OutlinedTextField(
+                            StealthTextField(
                                 value = confirmPassword,
                                 onValueChange = { confirmPassword = it },
-                                label = { Text("Confirmar Contraseña") },
-                                modifier = Modifier.fillMaxWidth(),
-                                visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                shape = RoundedCornerShape(12.dp),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                                singleLine = true,
-                                trailingIcon = {
-                                    val image = if (confirmPasswordVisible) "Ocultar" else "Mostrar"
-                                    TextButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
-                                        Text(image, style = MaterialTheme.typography.bodySmall)
-                                    }
-                                }
+                                label = s.confirmPassword,
+                                visualTransformation = PasswordVisualTransformation()
                             )
                         }
 
@@ -124,19 +159,19 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
                             Text(
                                 text = it,
                                 color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(top = 8.dp)
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(top = 16.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(40.dp))
 
-                        Button(
+                        BounceButton(
                             onClick = {
                                 val trimmedEmail = email.trim()
                                 if (trimmedEmail.isBlank() || password.isBlank()) {
-                                    errorMsg = "Por favor completa todos los campos"
-                                    return@Button
+                                    errorMsg = s.fieldsRequired
+                                    return@BounceButton
                                 }
                                 scope.launch {
                                     isLoading = true
@@ -145,59 +180,120 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
                                         if (result.isSuccess) {
                                             onLoginSuccess()
                                         } else {
-                                            val exception = result.exceptionOrNull()
-                                            Log.e("AUTH_ERROR", "Login fail: ${exception?.message}")
-                                            errorMsg = "Error: Credenciales incorrectas"
+                                            errorMsg = s.invalidCredentials
                                         }
                                     } else {
                                         if (password != confirmPassword) {
-                                            errorMsg = "Las contraseñas no coinciden"
+                                            errorMsg = s.passwordsMismatch
                                             isLoading = false
                                             return@launch
                                         }
-                                        if (password.length < 6) {
-                                            errorMsg = "La contraseña debe tener al menos 6 caracteres"
-                                            isLoading = false
-                                            return@launch
-                                        }
-                                        val result = authRepository.signUp(trimmedEmail, password)
+                                        val result = authRepository.signUp(trimmedEmail, password, nombre, apellido, fechaNacimiento)
                                         if (result.isSuccess) {
+                                            // Trigger success and navigate to main app
                                             onLoginSuccess()
                                         } else {
-                                            val exception = result.exceptionOrNull()
-                                            Log.e("AUTH_ERROR", "Signup fail: ${exception?.message}")
-                                            errorMsg = when {
-                                                exception?.message?.contains("already in use", ignoreCase = true) == true -> "Este correo ya está registrado"
-                                                exception?.message?.contains("badly formatted", ignoreCase = true) == true -> "Correo inválido (ej: usuario@correo.com)"
-                                                else -> "Error: ${exception?.localizedMessage ?: "Fallo al crear cuenta"}"
-                                            }
+                                            errorMsg = s.initializationFailed
                                         }
                                     }
                                     isLoading = false
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth().height(50.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            enabled = !isLoading
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            enabled = !isLoading,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            shape = RoundedCornerShape(8.dp)
                         ) {
                             if (isLoading) {
-                                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
                             } else {
-                                Text(if (isLogin) "Iniciar Sesión" else "Registrarse", fontWeight = FontWeight.Bold)
+                                Text(
+                                    if (isLogin) s.login else s.initialize,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
-                TextButton(onClick = { isLogin = !isLogin; errorMsg = null }) {
-                    Text(
-                        text = if (isLogin) "¿No tienes cuenta? Regístrate aquí" else "¿Ya tienes cuenta? Inicia sesión",
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    TextButton(onClick = { isLogin = !isLogin; errorMsg = null }) {
+                        Text(
+                            text = if (isLogin) s.needAccess else s.alreadyInitialized,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun StealthTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    visualTransformation: ComposeVisualTransformation = ComposeVisualTransformation.None,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    trailingIcon: @Composable (() -> Unit)? = null
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier.fillMaxWidth().background(Color(0xFF090909), RoundedCornerShape(8.dp)),
+            visualTransformation = visualTransformation,
+            keyboardOptions = keyboardOptions,
+            trailingIcon = trailingIcon,
+            shape = RoundedCornerShape(8.dp),
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                cursorColor = MaterialTheme.colorScheme.primary,
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White
+            )
+        )
+    }
+}
+
+class DateTransformation : ComposeVisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val out = StringBuilder()
+        for (i in text.indices) {
+            out.append(text[i])
+            if (i == 1 || i == 3) out.append("/")
+        }
+        
+        val offsetMapping = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int {
+                if (offset <= 1) return offset
+                if (offset <= 3) return offset + 1
+                if (offset <= 8) return offset + 2
+                return 10
+            }
+
+            override fun transformedToOriginal(offset: Int): Int {
+                if (offset <= 2) return offset
+                if (offset <= 5) return offset - 1
+                if (offset <= 10) return offset - 2
+                return 8
+            }
+        }
+
+        return TransformedText(AnnotatedString(out.toString()), offsetMapping)
     }
 }
