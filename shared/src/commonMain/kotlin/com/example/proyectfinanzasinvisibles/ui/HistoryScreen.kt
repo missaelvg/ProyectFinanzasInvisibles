@@ -12,121 +12,100 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.proyectfinanzasinvisibles.ui.theme.PrimaryBlue
+import com.example.proyectfinanzasinvisibles.data.GastoDatabase
+import com.example.proyectfinanzasinvisibles.data.Gasto
 
 @Composable
-@Preview
 fun HistoryScreen() {
+    val s = LocalStrings.current
+    val gastos = GastoDatabase.obtenerGastosLocales()
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
     ) {
-        // Cabecera del historial
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(24.dp).background(PrimaryBlue, CircleShape))
-                Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "Historial", 
-                    color = Color.White, 
-                    fontSize = 24.sp, 
-                    fontWeight = FontWeight.Bold
+                    text = s.history, 
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
             }
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color.DarkGray)
-            )
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Tarjeta de resumen de procesamiento
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1E)),
-            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(8.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(
-                    text = "PROCESADOS HOY", 
-                    color = Color.Gray, 
-                    fontSize = 10.sp, 
-                    fontWeight = FontWeight.Bold
+                    text = "PROCESADOS TOTAL", 
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "24", 
-                    color = Color.White, 
-                    fontSize = 32.sp, 
-                    fontWeight = FontWeight.Bold
+                    text = "${gastos.size}", 
+                    style = MaterialTheme.typography.displayLarge,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(Color.Green))
+                    Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(Color.Gray))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Sistema activo al 99.2%", 
-                        color = Color.Gray, 
-                        fontSize = 12.sp
+                        text = "System Online", 
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline
                     )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Recientes", 
-                color = Color.White, 
-                fontSize = 18.sp, 
-                fontWeight = FontWeight.Bold
-            )
-        }
+        Text(
+            text = "Recientes", 
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Listado de transacciones históricas
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item {
-                HistoryItem("CARGO COMPRA TD 7382", "$120.00 - Starbucks", "Café", "hace 10m")
-            }
-            item {
-                HistoryItem("PAGO APP *UBER RIDE", "$185.50 - Uber", "Transporte", "hace 1h")
-            }
-            item {
-                HistoryItem("COMERCIO *OX 0291", "$45.00 - OXXO", "Snacks", "hace 3h")
-            }
-            item {
-                HistoryItem("CARGO AMAZON MX *ORDER", "$1,249.00 - Amazon", "Compras", "Ayer")
+            items(gastos.size) { index ->
+                val gasto = gastos[index]
+                HistoryItem(
+                    label = "TRANSACCIÓN #${gasto.id}", 
+                    detail = "$${gasto.monto} - ${gasto.descripcion}", 
+                    category = gasto.categoria,
+                    time = s.justNow,
+                    onDelete = { GastoDatabase.eliminarGasto(gasto) }
+                )
             }
         }
     }
 }
 
 @Composable
-fun HistoryItem(label: String, detail: String, category: String, time: String) {
+fun HistoryItem(label: String, detail: String, category: String, time: String, onDelete: () -> Unit = {}) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1E)),
-        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(8.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -137,25 +116,18 @@ fun HistoryItem(label: String, detail: String, category: String, time: String) {
                 Column {
                     Text(
                         text = label, 
-                        color = Color.Gray, 
-                        fontSize = 10.sp, 
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline
                     )
                     Text(
                         text = detail, 
-                        color = Color.White, 
-                        fontSize = 16.sp, 
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold
                     )
                 }
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF2C2C2E)), 
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(Modifier.size(10.dp).background(Color.Green, CircleShape))
+                IconButton(onClick = onDelete) {
+                    Text("X", color = MaterialTheme.colorScheme.outline, fontSize = 14.sp)
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
@@ -165,19 +137,19 @@ fun HistoryItem(label: String, detail: String, category: String, time: String) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color(0xFF2C2C2E))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(4.dp)
                     ) {
-                        Text(text = category, color = Color.White, fontSize = 10.sp)
+                        Text(
+                            text = category, 
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = time, color = Color.Gray, fontSize = 12.sp)
-                }
-                TextButton(onClick = {}, contentPadding = PaddingValues(0.dp)) {
-                    Text(text = "CORREGIR", color = Color.Gray, fontSize = 12.sp)
+                    Text(text = time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                 }
             }
         }

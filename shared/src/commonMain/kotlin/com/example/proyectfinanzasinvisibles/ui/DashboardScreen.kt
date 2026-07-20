@@ -2,33 +2,13 @@ package com.example.proyectfinanzasinvisibles.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,30 +18,26 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Image
+import org.jetbrains.compose.resources.painterResource
+import proyectfinanzasinvisibles.shared.generated.resources.Res
+import proyectfinanzasinvisibles.shared.generated.resources.logo_finanzas
+import com.example.proyectfinanzasinvisibles.ui.components.BounceButton
 import com.example.proyectfinanzasinvisibles.data.GastoDatabase
-import com.example.proyectfinanzasinvisibles.ui.theme.PrimaryBlue
+import com.example.proyectfinanzasinvisibles.data.Gasto
 
 @Composable
 fun DashboardScreen() {
+    val s = LocalStrings.current
     val scrollState = rememberScrollState()
-
-    val gastos by remember {
-        mutableStateOf(GastoDatabase.obtenerGastosLocales())
-    }
-
-    val totalGastado = remember(gastos) {
-        gastos.sumOf { it.monto }
-    }
-
+    val gastos = GastoDatabase.obtenerGastosLocales()
+    val totalGastado = remember(gastos) { gastos.sumOf { it.monto } }
     val totalHormiga = remember(gastos) {
-        gastos
-            .filter {
-                it.categoria == "Antojos" ||
-                        it.categoria == "Café" ||
-                        it.categoria == "General"
-            }
+        gastos.filter { it.categoria == "Antojos" || it.categoria == "Café" || it.categoria == "General" }
             .sumOf { it.monto }
     }
+
+    var showIntelligentAlert by remember { mutableStateOf(true) }
 
     Column(
         modifier = Modifier
@@ -70,61 +46,58 @@ fun DashboardScreen() {
             .verticalScroll(scrollState)
             .padding(16.dp)
     ) {
-        // Cabecera principal
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(PrimaryBlue, CircleShape)
+                Image(
+                    painter = painterResource(Res.drawable.logo_finanzas),
+                    contentDescription = "Logo FI",
+                    modifier = Modifier.size(32.dp)
                 )
 
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Column {
                     Text(
-                        text = "Asistente Silencioso",
-                        color = Color.White,
-                        fontSize = 18.sp,
+                        text = s.silentAssistant,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold
                     )
 
                     Text(
-                        text = "Activo",
-                        color = PrimaryBlue,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
+                        text = s.activeNow,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline
                     )
                 }
             }
 
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
-                    .background(Color.DarkGray)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
             )
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = "DASHBOARD",
-            color = PrimaryBlue,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold
+            text = s.dashboard,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline,
+            letterSpacing = 2.sp
         )
 
         Text(
-            text = "Resumen de Fugas\nSemanales",
-            color = Color.White,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            lineHeight = 34.sp
+            text = s.weeklyLeak,
+            style = MaterialTheme.typography.displayLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+            lineHeight = 48.sp
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -134,30 +107,31 @@ fun DashboardScreen() {
             porcentaje = (totalHormiga / 1000f).toFloat().coerceIn(0f, 1f)
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        DeteccionInteligenteCard()
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        DistribucionFugasCard(total = totalGastado)
+        if (showIntelligentAlert) {
+            Spacer(modifier = Modifier.height(16.dp))
+            DeteccionInteligenteCard(onDismiss = { showIntelligentAlert = false })
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
+
+        DistribucionFugasCard(total = totalGastado, gastos = gastos)
+
+        Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = "Actividad Reciente",
-            color = Color.White,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold
+            text = s.recentActivity,
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        gastos.take(3).forEach { gasto ->
+        gastos.take(5).forEach { gasto ->
             RecentItem(
-                title = "${gasto.descripcion} (${gasto.categoria})",
-                amount = "-${'$'}${gasto.monto.toInt()}",
-                time = "Reciente"
+                title = gasto.descripcion,
+                category = gasto.categoria,
+                amount = "-$${gasto.monto.toInt()}",
+                time = s.justNow
             )
         }
 
@@ -167,306 +141,249 @@ fun DashboardScreen() {
 
 @Composable
 fun GastoHormigaCard(monto: Double, porcentaje: Float) {
+    val s = LocalStrings.current
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1E)),
-        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(8.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(24.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "GASTO HORMIGA",
-                    color = Color.Gray,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
+                    text = s.stealthLeak,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
                 )
 
                 Box(
                     modifier = Modifier
-                        .size(16.dp)
-                        .background(PrimaryBlue, RoundedCornerShape(4.dp))
+                        .size(8.dp)
+                        .background(MaterialTheme.colorScheme.primary, CircleShape)
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
-                    text = "${'$'}${monto.toInt()}",
-                    color = Color.White,
-                    fontSize = 40.sp,
-                    fontWeight = FontWeight.Bold
+                    text = "$${monto.toInt()}",
+                    style = MaterialTheme.typography.displayLarge,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
                 Spacer(modifier = Modifier.width(8.dp))
 
                 Text(
                     text = "MXN",
-                    color = Color.Gray,
-                    fontSize = 16.sp,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.outline,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
             }
 
             Text(
-                text = "Acumulado semanal en gastos menores",
-                color = Color.Gray,
-                fontSize = 14.sp
+                text = s.accumulatedWeekly,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             LinearProgressIndicator(
                 progress = { porcentaje.coerceIn(0f, 1f) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp)),
-                color = PrimaryBlue,
-                trackColor = Color(0xFF2C2C2E)
+                    .height(2.dp)
+                    .clip(RoundedCornerShape(1.dp)),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
         }
     }
 }
 
 @Composable
-fun DeteccionInteligenteCard() {
+fun DeteccionInteligenteCard(onDismiss: () -> Unit) {
+    val s = LocalStrings.current
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1E)),
-        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(8.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .background(PrimaryBlue, CircleShape)
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
                 Text(
-                    text = "DETECCIÓN INTELIGENTE",
-                    color = PrimaryBlue,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold
+                    text = s.intelligentDetection,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = "Se detectó un posible gasto innecesario de ${'$'}45 en OXXO",
-                color = Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = "Hace 10 min",
-                color = Color.Gray,
-                fontSize = 12.sp
+                text = s.expenseDetected,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Medium
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Button(
-                onClick = {},
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.height(36.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
-            ) {
-                Text(
-                    text = "¿Es necesario?",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                BounceButton(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.height(40.dp).weight(1f)
+                ) {
+                    Text(
+                        text = s.evade,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+                
+                BounceButton(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.height(40.dp).weight(1f)
+                ) {
+                    Text(
+                        text = s.ignore,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-fun DistribucionFugasCard(total: Double) {
+fun DistribucionFugasCard(total: Double, gastos: List<Gasto>) {
+    val s = LocalStrings.current
+    val categorias = gastos.groupBy { it.categoria }
+    val proportions = if (total > 0) {
+        categorias.map { (it.value.sumOf { g -> g.monto } / total).toFloat() }
+    } else listOf(1f)
+    
+    val colors = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.outline, MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.outlineVariant, Color.DarkGray)
+
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1E)),
-        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(8.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(24.dp)) {
             Text(
-                text = "Distribución de Gastos",
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
+                text = s.spendingDistribution,
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onSurface
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             Box(
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
                 DonutChart(
-                    modifier = Modifier.size(150.dp),
-                    proportions = listOf(0.5f, 0.25f, 0.25f),
-                    colors = listOf(
-                        PrimaryBlue,
-                        Color(0xFFD0F8E2),
-                        Color(0xFFFFA292)
-                    )
+                    modifier = Modifier.size(160.dp),
+                    proportions = proportions,
+                    colors = colors
                 )
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "${'$'}${total.toInt()}",
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
+                        text = "$${total.toInt()}",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
 
                     Text(
-                        text = "Total",
-                        color = Color.Gray,
-                        fontSize = 12.sp
+                        text = s.total,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-            DistributionItem("Café", "${'$'}400 (50%)", PrimaryBlue)
-            DistributionItem("Snacks", "${'$'}250 (25%)", Color(0xFFD0F8E2))
-            DistributionItem("Transporte", "${'$'}200 (25%)", Color(0xFFFFA292))
+            categorias.entries.take(5).forEachIndexed { index, entry ->
+                DistributionItem(entry.key, "$${entry.value.sumOf { it.monto }.toInt()}", colors.getOrElse(index) { Color.Gray })
+            }
         }
     }
 }
 
 @Composable
-fun DonutChart(
-    modifier: Modifier,
-    proportions: List<Float>,
-    colors: List<Color>
-) {
+fun DonutChart(modifier: Modifier, proportions: List<Float>, colors: List<Color>) {
     Canvas(modifier = modifier) {
         var startAngle = -90f
-
         proportions.forEachIndexed { index, proportion ->
             val sweepAngle = proportion * 360f
-
             drawArc(
-                color = colors[index],
+                color = colors.getOrElse(index) { Color.Gray },
                 startAngle = startAngle,
                 sweepAngle = sweepAngle,
                 useCenter = false,
-                style = Stroke(
-                    width = 20.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
+                style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
             )
-
             startAngle += sweepAngle
         }
     }
 }
 
 @Composable
-fun DistributionItem(
-    label: String,
-    value: String,
-    color: Color
-) {
+fun DistributionItem(label: String, value: String, color: Color) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(color)
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Text(
-                text = label,
-                color = Color.White,
-                fontSize = 14.sp
-            )
+            Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(color))
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-
-        Text(
-            text = value,
-            color = Color.White,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold
-        )
+        Text(text = value, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
-fun RecentItem(
-    title: String,
-    amount: String,
-    time: String
-) {
+fun RecentItem(title: String, category: String, amount: String, time: String) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF2C2C2E)),
+                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(20.dp)
-                        .background(PrimaryBlue, CircleShape)
-                )
+                Box(modifier = Modifier.size(16.dp).background(MaterialTheme.colorScheme.outline, CircleShape))
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(16.dp))
 
             Column {
-                Text(
-                    text = title,
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-
-                Text(
-                    text = time,
-                    color = Color.Gray,
-                    fontSize = 12.sp
-                )
+                Text(text = title, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+                Text(text = category, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
             }
         }
 
-        Text(
-            text = amount,
-            color = Color(0xFFFFA292),
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold
-        )
+        Column(horizontalAlignment = Alignment.End) {
+            Text(text = amount, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+            Text(text = time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+        }
     }
 }

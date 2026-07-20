@@ -28,7 +28,7 @@ kotlin {
         browser()
     }
     
-    androidLibrary {
+    android {
        namespace = "com.example.proyectfinanzasinvisibles.shared"
        compileSdk = libs.versions.android.compileSdk.get().toInt()
        minSdk = libs.versions.android.minSdk.get().toInt()
@@ -48,6 +48,9 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
             implementation("io.ktor:ktor-client-okhttp:3.5.0")
+            implementation(project.dependencies.platform(libs.firebase.bom))
+            implementation(libs.firebase.auth)
+            implementation(libs.firebase.firestore)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -60,6 +63,7 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation("io.ktor:ktor-client-core:3.5.0")
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+            implementation(libs.compose.materialIconsExtended)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

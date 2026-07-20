@@ -12,54 +12,46 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
 import com.example.proyectfinanzasinvisibles.network.postCategorizarGasto
+import com.example.proyectfinanzasinvisibles.ui.components.BounceButton
 import kotlinx.coroutines.launch
 
 @Composable
 fun AnalisisScreen() {
-    var resultado by remember { mutableStateOf("Esperando análisis...") }
+    val s = LocalStrings.current
+    var resultado by remember { mutableStateOf(if (s.language == "Language") "Waiting for analysis..." else "Esperando análisis...") }
     val scope = rememberCoroutineScope()
-
-    // Colores consistentes con Dashboard
-    val backgroundColor = Color(0xFF0F172A)
-    val cardColor = Color(0xFF1E293B)
-    val textColor = Color(0xFFF8FAFC)
-    val textMuted = Color(0xFF94A3B8)
-    val accentBlue = Color(0xFF3B82F6)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundColor)
+            .background(MaterialTheme.colorScheme.background)
             .padding(20.dp)
     ) {
         Text(
-            text = "Asistente IA",
-            color = textColor,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 24.dp, bottom = 24.dp)
+            text = s.ai,
+            style = MaterialTheme.typography.headlineLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(top = 8.dp, bottom = 24.dp)
         )
 
         // Tarjeta de Entrada de Datos (Simulada)
         Card(
-            colors = CardDefaults.cardColors(containerColor = cardColor),
-            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(8.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(
-                    text = "Última actividad detectada",
-                    color = textMuted,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
+                    text = if (s.language == "Language") "LAST ACTIVITY DETECTED" else "ÚLTIMA ACTIVIDAD DETECTADA",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "SMS: Pago de Netflix por $219.00 MXN",
-                    color = textColor,
-                    fontSize = 16.sp,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -67,35 +59,39 @@ fun AnalisisScreen() {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Button(
+        BounceButton(
             onClick = {
                 scope.launch {
-                    resultado = "Conectando con Gemini API..."
+                    resultado = if (s.language == "Language") "Connecting to Gemini API..." else "Conectando con Gemini API..."
                     val respuesta = postCategorizarGasto("Pago de Netflix por $219.00 MXN")
                     resultado = respuesta
                 }
             },
             modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = accentBlue)
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
         ) {
-            Text("Analizar con Gemini API", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text(
+                if (s.language == "Language") "Analyze with Gemini API" else "Analizar con Gemini API",
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.onPrimary
+            )
         }
 
         Spacer(modifier = Modifier.height(32.dp))
 
         Text(
-            text = "Resultado del Análisis",
-            color = textColor,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold,
+            text = if (s.language == "Language") "Analysis Result" else "Resultado del Análisis",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
         // Tarjeta de Resultado
         Card(
-            colors = CardDefaults.cardColors(containerColor = cardColor.copy(alpha = 0.6f)),
-            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+            shape = RoundedCornerShape(8.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Box(
@@ -106,8 +102,8 @@ fun AnalisisScreen() {
             ) {
                 Text(
                     text = resultado,
-                    color = if (resultado.contains("Procesando")) accentBlue else textColor,
-                    fontSize = 18.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
                     textAlign = TextAlign.Center
                 )
@@ -117,19 +113,11 @@ fun AnalisisScreen() {
         Spacer(modifier = Modifier.weight(1f))
         
         Text(
-            text = "La IA puede cometer errores. Verifica siempre tus gastos.",
-            color = textMuted,
-            fontSize = 12.sp,
+            text = if (s.language == "Language") "AI can make mistakes. Always verify your expenses." else "La IA puede cometer errores. Verifica siempre tus gastos.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
         )
-    }
-}
-
-@Preview
-@Composable
-fun AnalisisScreenPreview() {
-    MaterialTheme {
-        AnalisisScreen()
     }
 }
