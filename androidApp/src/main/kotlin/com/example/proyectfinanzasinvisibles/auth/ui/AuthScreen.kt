@@ -37,6 +37,8 @@ import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.TimeoutCancellationException
 
 @Composable
 fun AuthScreen(onLoginSuccess: () -> Unit) {
@@ -274,21 +276,39 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
                                     isLoading = true
                                     errorMsg = null
                                     try {
-                                        if (isLogin) {
-                                            val result = authRepository.login(trimmedEmail, password)
-                                            if (result.isSuccess) {
-                                                onLoginSuccess()
+                                        withTimeout(20000) { 
+                                            if (isLogin) {
+                                                val result = authRepository.login(trimmedEmail, password)
+                                                if (result.isSuccess) {
+                                                    onLoginSuccess()
+                                                } else {
+                                                    errorMsg = result.exceptionOrNull()?.message ?: s.invalidCredentials
+                                                }
                                             } else {
-                                                errorMsg = result.exceptionOrNull()?.message ?: s.invalidCredentials
-                                            }
-                                        } else {
-                                            val result = authRepository.signUp(trimmedEmail, password, nombre, apellido, fechaNacimiento, ciudad)
-                                            if (result.isSuccess) {
-                                                onLoginSuccess()
-                                            } else {
-                                                errorMsg = result.exceptionOrNull()?.message ?: s.initializationFailed
+                                                // Para el Registro (Inicializar):
+                                                // Llamamos a signUp. Si se crea la cuenta en Firebase Auth,
+                                                // mandamos al usuario a la App de inmediato.
+                                                val result = authRepository.signUp(trimmedEmail, password, nombre, apellido, fechaNacimiento, ciudad)
+                                                
+                                                if (result.isSuccess) {
+                                                    onLoginSuccess()
+                                                } else {
+                                                    val error = result.exceptionOrNull()?.message ?: ""
+                                                    // Si el error es que el usuario ya existe, intentamos loguear
+                                                    if (error.contains("already in use", ignoreCase = true)) {
+                                                        authRepository.login(trimmedEmail, password)
+                                                        onLoginSuccess()
+                                                    } else {
+                                                        errorMsg = error.ifBlank { s.initializationFailed }
+                                                    }
+                                                }
                                             }
                                         }
+                                    } catch (e: TimeoutCancellationException) {
+                                        // En caso de timeout, si es registro, es probable que la cuenta sí se haya creado
+                                        // pero Firestore esté lento. Intentamos entrar de todos modos.
+                                        if (!isLogin) onLoginSuccess() 
+                                        else errorMsg = "Error de red: El servidor no responde"
                                     } catch (e: Exception) {
                                         errorMsg = e.message ?: "Error inesperado"
                                     } finally {

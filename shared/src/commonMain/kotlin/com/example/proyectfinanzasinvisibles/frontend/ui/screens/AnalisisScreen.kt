@@ -18,6 +18,7 @@ import com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase
 import com.example.proyectfinanzasinvisibles.frontend.ui.components.BounceButton
 import com.example.proyectfinanzasinvisibles.frontend.ui.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 @Composable
 fun AnalisisScreen(onNavToHistory: () -> Unit = {}) {
@@ -84,7 +85,10 @@ fun AnalisisScreen(onNavToHistory: () -> Unit = {}) {
                         // Actualizar localmente de inmediato para mejorar la respuesta visual
                         GastoDatabase.guardarGastoLocal(nuevoGasto)
                         
-                        val exito = gastoRepository.sincronizarGasto(nuevoGasto)
+                        // Timeout de 10s para Firestore
+                        val exito = withTimeoutOrNull(10000) {
+                            gastoRepository.sincronizarGasto(nuevoGasto)
+                        } ?: false
                         
                         if (exito) {
                             resultado = if (s.language == "Language") 

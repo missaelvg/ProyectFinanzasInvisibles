@@ -42,40 +42,20 @@ class MainActivity : ComponentActivity() {
 
             LaunchedEffect(isLoggedIn) {
                 if (isLoggedIn) {
-                    isAppReady = false // Mostrar loading mientras se sincroniza el nuevo usuario
+                    // Entramos a la App de inmediato para que no se quede trabado
+                    isAppReady = true 
                     
-                    // Request permissions if needed
-                    val permissionsToRequest = mutableListOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    )
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                        permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
-                    }
-                    val notGranted = permissionsToRequest.filter {
-                        ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
-                    }
-                    if (notGranted.isNotEmpty()) {
-                        launcher.launch(notGranted.toTypedArray())
-                    }
-
+                    // La sincronización ocurre en segundo plano
                     try {
-                        withTimeoutOrNull(5000) { // Reducido de 8s a 5s para no bloquear al usuario
-                            val profileResult = authRepository.getUserProfile()
-                            if (profileResult.isSuccess) {
-                                // Ejecutar tareas no críticas en paralelo o después
-                                authRepository.actualizarRacha()
-                                
-                                val firebaseRepo = GastoRepository()
-                                val gastosFirebase = firebaseRepo.obtenerGastos()
-                                GastoDatabase.inicializarGastos(gastosFirebase)
-                            }
+                        val profileResult = withTimeoutOrNull(5000) { authRepository.getUserProfile() }
+                        if (profileResult?.isSuccess == true) {
+                            authRepository.actualizarRacha()
+                            val firebaseRepo = GastoRepository()
+                            val gastosFirebase = firebaseRepo.obtenerGastos()
+                            GastoDatabase.inicializarGastos(gastosFirebase)
                         }
                     } catch (e: Exception) {
-                        Log.e("MainActivity", "Error sincronizando usuario: ${e.message}")
-                    } finally {
-                        // Asegurar que siempre pase a la app aunque la sync falle/tarde
-                        isAppReady = true
+                        Log.e("MainActivity", "Error en sync de fondo: ${e.message}")
                     }
                 } else {
                     GastoDatabase.limpiarBaseDeDatos()

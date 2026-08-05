@@ -7,6 +7,7 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
+import io.ktor.http.isSuccess
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -24,7 +25,7 @@ class GeminiApi {
 
     private val client = HttpClient {
         install(HttpTimeout) {
-            requestTimeoutMillis = 30000
+            requestTimeoutMillis = 30000 // Aumentado a 30s por si el backend está "dormido"
             connectTimeoutMillis = 30000
             socketTimeoutMillis = 30000
         }
@@ -36,12 +37,16 @@ class GeminiApi {
                 put("textoBanco", textoBanco)
             }.toString()
 
-            val responseText = client.post(backendUrl) {
+            val response = client.post(backendUrl) {
                 contentType(ContentType.Application.Json)
                 setBody(requestBody)
-            }.bodyAsText()
+            }
 
-            extraerRespuestaBackend(responseText)
+            if (response.status.isSuccess()) {
+                extraerRespuestaBackend(response.bodyAsText())
+            } else {
+                "Error del servidor: ${response.status.value}"
+            }
 
         } catch (e: Exception) {
             "Error al conectar con el backend: ${e.message}"
