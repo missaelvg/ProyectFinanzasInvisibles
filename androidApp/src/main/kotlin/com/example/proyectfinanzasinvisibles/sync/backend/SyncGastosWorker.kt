@@ -4,7 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.example.proyectfinanzasinvisibles.data.GastoDatabase
+import com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase
 
 class SyncGastosWorker(appContext: Context, workerParams: WorkerParameters):
     CoroutineWorker(appContext, workerParams) {

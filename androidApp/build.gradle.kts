@@ -26,8 +26,10 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
     implementation(libs.compose.uiToolingPreview)
+    implementation(libs.compose.materialIconsExtended)
     debugImplementation(libs.compose.uiTooling)
     implementation("androidx.work:work-runtime-ktx:2.9.1")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
 }
 
 android {

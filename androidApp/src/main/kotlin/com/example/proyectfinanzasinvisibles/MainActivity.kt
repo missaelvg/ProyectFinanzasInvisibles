@@ -1,15 +1,27 @@
 package com.example.proyectfinanzasinvisibles
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.content.ContextCompat
 import com.example.proyectfinanzasinvisibles.sync.backend.WorkManagerScheduler
-import com.example.proyectfinanzasinvisibles.auth.backend.AuthRepository
+import com.example.proyectfinanzasinvisibles.backend.repositories.AuthRepository
 import com.example.proyectfinanzasinvisibles.auth.ui.AuthScreen
-import com.example.proyectfinanzasinvisibles.ui.components.LoadingScreen
+import com.example.proyectfinanzasinvisibles.frontend.ui.components.LoadingScreen
+import com.example.proyectfinanzasinvisibles.frontend.App
+import com.example.proyectfinanzasinvisibles.frontend.ui.theme.StealthMonochromeTheme
+import com.example.proyectfinanzasinvisibles.backend.repositories.GastoRepository
+import com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase
+import kotlinx.coroutines.withTimeoutOrNull
+import android.util.Log
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,33 +35,66 @@ class MainActivity : ComponentActivity() {
             var isAppReady by remember { mutableStateOf(false) }
             var isLoggedIn by remember { mutableStateOf(authRepository.isUserLoggedIn()) }
 
-            LaunchedEffect(Unit) {
-                // Verification of session persistence
+            val context = LocalContext.current
+            val launcher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestMultiplePermissions()
+            ) { _ -> }
+
+            LaunchedEffect(isLoggedIn) {
                 if (isLoggedIn) {
-                    val result = authRepository.getUserProfile()
-                    if (result.isFailure) {
-                        // Only logout if the token is completely invalid/expired
-                        // Firebase handles persistence automatically, so we just double check
-                        // if we can actually reach the data.
-                        // authRepository.logout() // Uncomment if you want strict session verification
-                        // isLoggedIn = false
+                    isAppReady = false // Mostrar loading mientras se sincroniza el nuevo usuario
+                    
+                    // Request permissions if needed
+                    val permissionsToRequest = mutableListOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                        permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
                     }
+                    val notGranted = permissionsToRequest.filter {
+                        ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
+                    }
+                    if (notGranted.isNotEmpty()) {
+                        launcher.launch(notGranted.toTypedArray())
+                    }
+
+                    try {
+                        withTimeoutOrNull(8000) { // Un poco más de tiempo para el primer login
+                            val profileResult = authRepository.getUserProfile()
+                            if (profileResult.isSuccess) {
+                                authRepository.actualizarRacha()
+                                val firebaseRepo = GastoRepository()
+                                val gastosFirebase = firebaseRepo.obtenerGastos()
+                                GastoDatabase.inicializarGastos(gastosFirebase)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Error sincronizando usuario: ${e.message}")
+                    } finally {
+                        isAppReady = true
+                    }
+                } else {
+                    GastoDatabase.limpiarBaseDeDatos()
+                    isAppReady = true
                 }
-                isAppReady = true
             }
 
-            if (!isAppReady) {
-                LoadingScreen()
-            } else {
-                if (isLoggedIn) {
-                    App(onLogout = {
-                        authRepository.logout()
-                        isLoggedIn = false
-                    })
+            StealthMonochromeTheme {
+                if (!isAppReady) {
+                    LoadingScreen()
                 } else {
-                    AuthScreen(onLoginSuccess = {
-                        isLoggedIn = true
-                    })
+                    if (isLoggedIn) {
+                        App(onLogout = {
+                            authRepository.logout()
+                            GastoDatabase.limpiarBaseDeDatos()
+                            isLoggedIn = false
+                        })
+                    } else {
+                        AuthScreen(onLoginSuccess = {
+                            isLoggedIn = true
+                        })
+                    }
                 }
             }
         }
