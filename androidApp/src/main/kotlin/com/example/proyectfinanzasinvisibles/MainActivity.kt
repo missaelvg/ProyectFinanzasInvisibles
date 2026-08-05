@@ -60,10 +60,12 @@ class MainActivity : ComponentActivity() {
                     }
 
                     try {
-                        withTimeoutOrNull(8000) { // Un poco más de tiempo para el primer login
+                        withTimeoutOrNull(5000) { // Reducido de 8s a 5s para no bloquear al usuario
                             val profileResult = authRepository.getUserProfile()
                             if (profileResult.isSuccess) {
+                                // Ejecutar tareas no críticas en paralelo o después
                                 authRepository.actualizarRacha()
+                                
                                 val firebaseRepo = GastoRepository()
                                 val gastosFirebase = firebaseRepo.obtenerGastos()
                                 GastoDatabase.inicializarGastos(gastosFirebase)
@@ -72,6 +74,7 @@ class MainActivity : ComponentActivity() {
                     } catch (e: Exception) {
                         Log.e("MainActivity", "Error sincronizando usuario: ${e.message}")
                     } finally {
+                        // Asegurar que siempre pase a la app aunque la sync falle/tarde
                         isAppReady = true
                     }
                 } else {

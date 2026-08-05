@@ -1,26 +1,33 @@
 package com.example.proyectfinanzasinvisibles.backend.ai
 
 import com.example.proyectfinanzasinvisibles.backend.data.Gasto
-import kotlinx.datetime.Clock
-import kotlin.random.Random
+import kotlin.time.Clock
 
 /**
  * Helper para interactuar con la IA de Gemini para clasificar gastos.
  */
-class GeminiHelper(private val apiKey: String = "") {
+class GeminiHelper {
     
+    private val api = GeminiApi()
+
     /**
-     * Clasifica un mensaje de texto (notificación) simulando el comportamiento de Gemini.
-     * En una implementación real, se enviaría el prompt al modelo generativo.
+     * Clasifica un mensaje de texto (notificación) usando el backend de IA si es posible,
+     * de lo contrario usa una clasificación local como fallback.
      */
     suspend fun clasificarGasto(mensajeTexto: String): Gasto {
+        val respuestaIA = try {
+            api.analizarTexto(mensajeTexto)
+        } catch (_: Exception) {
+            "ERROR"
+        }
+
+        val esHormigaIA = respuestaIA.contains("Hormiga", ignoreCase = true) || 
+                         respuestaIA.contains("Antojo", ignoreCase = true)
+        
         val textoLimpio = mensajeTexto.lowercase()
         
-        // Simulación del Prompt de Gemini:
-        // "Clasifica la compra: si es un café, papas, suscripciones pequeñas, es 'Gasto Hormiga'; 
-        // si es despensa, renta o servicios, es 'Gasto Normal'."
-        
-        val esHormiga = textoLimpio.contains("café") || 
+        // Local Fallback / Supplemental logic
+        val esHormigaLocal = textoLimpio.contains("café") || 
                         textoLimpio.contains("starbucks") || 
                         textoLimpio.contains("oxxo") || 
                         textoLimpio.contains("papas") || 
@@ -28,6 +35,8 @@ class GeminiHelper(private val apiKey: String = "") {
                         textoLimpio.contains("netflix") || 
                         textoLimpio.contains("spotify") || 
                         textoLimpio.contains("antojo")
+
+        val esHormiga = esHormigaIA || (respuestaIA == "ERROR" && esHormigaLocal)
 
         val esNormal = textoLimpio.contains("renta") || 
                        textoLimpio.contains("despensa") || 
@@ -39,12 +48,12 @@ class GeminiHelper(private val apiKey: String = "") {
         val tipoClasificado = when {
             esHormiga -> "Gasto Hormiga"
             esNormal -> "Gasto Normal"
-            else -> "Gasto Normal" // Por defecto
+            else -> if (respuestaIA != "ERROR") "Gasto Normal" else "Gasto Normal"
         }
 
         val montoExtraido = try {
             "\\d+(\\.\\d+)?".toRegex().find(mensajeTexto)?.value?.toDouble() ?: 0.0
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             0.0
         }
 
@@ -52,11 +61,11 @@ class GeminiHelper(private val apiKey: String = "") {
 
         return Gasto(
             id = "ID-$now",
-            descripcion = mensajeTexto,
+            descripcion = if (respuestaIA != "ERROR" && respuestaIA.length < 100) "$mensajeTexto ($respuestaIA)" else mensajeTexto,
             monto = montoExtraido,
             categoria = if (esHormiga) "Hormiga" else "Fijo/Variable",
             tipo = tipoClasificado,
-            estado = "Pendiente", // Siempre inicia como pendiente para aprobación del usuario
+            estado = "Pendiente",
             fecha = now
         )
     }

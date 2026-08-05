@@ -26,14 +26,17 @@ import com.example.proyectfinanzasinvisibles.frontend.ui.components.BounceButton
 import com.example.proyectfinanzasinvisibles.frontend.ui.*
 import com.example.proyectfinanzasinvisibles.backend.data.*
 import com.example.proyectfinanzasinvisibles.backend.repositories.*
+import kotlinx.coroutines.launch
 
 @Composable
 fun DashboardScreen() {
     val s = LocalStrings.current
     val authRepository = remember { AuthRepository() }
+    val gastoRepository = remember { GastoRepository() }
     val scrollState = rememberScrollState()
-    val gastos = GastoDatabase.obtenerGastosLocales()
+    val scope = rememberCoroutineScope()
     
+    var gastos by remember { mutableStateOf(GastoDatabase.obtenerGastosLocales()) }
     var streak by remember { mutableStateOf(0) }
     
     LaunchedEffect(Unit) {
@@ -41,14 +44,23 @@ fun DashboardScreen() {
         if (profile.isSuccess) {
             streak = (profile.getOrNull()?.get("racha") as? Long)?.toInt() ?: 0
         }
+        // Actualizar gastos locales desde Firebase
+        val gastosFirebase = gastoRepository.obtenerGastos()
+        if (gastosFirebase.isNotEmpty()) {
+            GastoDatabase.inicializarGastos(gastosFirebase)
+            gastos = GastoDatabase.obtenerGastosLocales()
+        }
     }
-    val totalGastado = remember(gastos) { gastos.sumOf { it.monto } }
+
+    val totalGastado = remember(gastos) { gastos.filter { it.estado == "Aceptado" }.sumOf { it.monto } }
     val totalHormiga = remember(gastos) {
-        gastos.filter { it.categoria == "Antojos" || it.categoria == "Café" || it.categoria == "General" }
+        gastos.filter { (it.categoria == "Hormiga" || it.tipo == "Gasto Hormiga") && it.estado == "Aceptado" }
             .sumOf { it.monto }
     }
 
-    var showIntelligentAlert by remember { mutableStateOf(true) }
+    val gastoPendiente = remember(gastos) {
+        gastos.firstOrNull { it.estado == "Pendiente" }
+    }
 
     Column(
         modifier = Modifier
@@ -137,9 +149,24 @@ fun DashboardScreen() {
             porcentaje = (totalHormiga / 1000f).toFloat().coerceIn(0f, 1f)
         )
 
-        if (showIntelligentAlert) {
+        gastoPendiente?.let { gasto ->
             Spacer(modifier = Modifier.height(16.dp))
-            DeteccionInteligenteCard(onDismiss = { showIntelligentAlert = false })
+            DeteccionInteligenteCard(
+                gasto = gasto,
+                onAction = { nuevoEstado ->
+                    scope.launch {
+                        val exito = gastoRepository.actualizarEstadoGasto(gasto.id, nuevoEstado)
+                        if (exito) {
+                            // Actualizar localmente
+                            val nuevosGastos = GastoDatabase.obtenerGastosLocales().map {
+                                if (it.id == gasto.id) it.copy(estado = nuevoEstado) else it
+                            }
+                            GastoDatabase.inicializarGastos(nuevosGastos)
+                            gastos = GastoDatabase.obtenerGastosLocales()
+                        }
+                    }
+                }
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -236,7 +263,7 @@ fun GastoHormigaCard(monto: Double, porcentaje: Float) {
 }
 
 @Composable
-fun DeteccionInteligenteCard(onDismiss: () -> Unit) {
+fun DeteccionInteligenteCard(gasto: Gasto, onAction: (String) -> Unit) {
     val s = LocalStrings.current
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -255,23 +282,29 @@ fun DeteccionInteligenteCard(onDismiss: () -> Unit) {
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = s.expenseDetected,
+                text = "Se detectó: ${gasto.descripcion} por $${gasto.monto.toInt()}",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Medium
+            )
+            
+            Text(
+                text = "¿Es un gasto necesario o una fuga?",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 BounceButton(
-                    onClick = onDismiss,
+                    onClick = { onAction("Aceptado") },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.height(40.dp).weight(1f)
                 ) {
                     Text(
-                        text = s.evade,
+                        text = "ES FUGA",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimary
@@ -279,13 +312,13 @@ fun DeteccionInteligenteCard(onDismiss: () -> Unit) {
                 }
                 
                 BounceButton(
-                    onClick = onDismiss,
+                    onClick = { onAction("Rechazado") },
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.height(40.dp).weight(1f)
                 ) {
                     Text(
-                        text = s.ignore,
+                        text = "IGNORAR",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface

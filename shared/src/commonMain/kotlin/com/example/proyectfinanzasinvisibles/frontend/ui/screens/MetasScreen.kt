@@ -1,10 +1,14 @@
 package com.example.proyectfinanzasinvisibles.frontend.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +23,7 @@ import com.example.proyectfinanzasinvisibles.frontend.ui.*
 
 @Composable
 fun MetasScreen() {
+    val s = LocalStrings.current
     val viewModel = remember { MetasViewModel() }
     val metas = viewModel.metas
     val isLoading = viewModel.isLoading
@@ -29,38 +34,71 @@ fun MetasScreen() {
             .sumOf { it.monto }
     }
 
-    val fondoOscuroBg = Color(0xFF111622)
-    val tarjetaGrisGris = Color(0xFF1E293B)
-    val textoBlanco = Color.White
-    val textoGrisSecundario = Color(0xFF94A3B8)
-    val colorProgresoAzul = Color(0xFF3B82F6)
-
     var showDialog by remember { mutableStateOf(false) }
+    var metaParaEditar by remember { mutableStateOf<MetaAhorro?>(null) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(fondoOscuroBg)
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
     ) {
         Text(
-            text = "Centro de Metas y Ahorro",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = textoBlanco,
-            modifier = Modifier.padding(bottom = 20.dp)
+            text = s.goals,
+            style = MaterialTheme.typography.headlineLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(top = 8.dp, bottom = 24.dp)
         )
 
         Card(
             modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = tarjetaGrisGris)
+            shape = RoundedCornerShape(8.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(text = "RESUMEN DE FUGAS (MES)", fontSize = 12.sp, color = textoGrisSecundario, fontWeight = FontWeight.Bold)
-                Text(text = "$${totalHormigaMes.toInt()}", fontSize = 32.sp, fontWeight = FontWeight.Black, color = textoBlanco)
+            Column(modifier = Modifier.padding(24.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = s.weeklyLeak,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = "$${totalHormigaMes.toInt()}",
+                        style = MaterialTheme.typography.displayLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Text(
+                        text = "MXN",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
                 
-                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = s.accumulatedWeekly,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
                 
                 val feedback = when {
                     totalHormigaMes < 300 -> "¡Eres un maestro del ahorro! Sigue así."
@@ -68,25 +106,29 @@ fun MetasScreen() {
                     else -> "Tus gastos hormiga están altos este mes. ¡Ajusta tu presupuesto!"
                 }
                 
-                Text(text = feedback, fontSize = 14.sp, color = colorProgresoAzul)
+                Text(
+                    text = feedback,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
 
         Text(
             text = "Metas Activas",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = textoBlanco,
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
         if (isLoading) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = colorProgresoAzul)
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
         } else if (metas.isEmpty()) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("No tienes metas creadas.", color = textoGrisSecundario)
+                Text("No tienes metas creadas.", color = MaterialTheme.colorScheme.outline)
             }
         } else {
             LazyColumn(
@@ -97,10 +139,8 @@ fun MetasScreen() {
                     MetaCard(
                         meta = meta,
                         progreso = viewModel.calcularPorcentajeProgreso(meta),
-                        tarjetaColor = tarjetaGrisGris,
-                        textoBlanco = textoBlanco,
-                        textoGrisSecundario = textoGrisSecundario,
-                        colorProgresoAzul = colorProgresoAzul
+                        onEdit = { metaParaEditar = it },
+                        onDelete = { viewModel.eliminarMeta(it.idMeta) }
                     )
                 }
             }
@@ -111,10 +151,10 @@ fun MetasScreen() {
         BounceButton(
             onClick = { showDialog = true },
             modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = colorProgresoAzul)
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
         ) {
-            Text("+ Crear nueva meta", fontWeight = FontWeight.Bold, color = Color.White)
+            Text(s.createNewGoal, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
         }
         
         Spacer(modifier = Modifier.height(80.dp))
@@ -129,41 +169,80 @@ fun MetasScreen() {
             }
         )
     }
+
+    metaParaEditar?.let { meta ->
+        EditMetaDialog(
+            meta = meta,
+            onDismiss = { metaParaEditar = null },
+            onConfirm = { nuevoTitulo, nuevoMonto ->
+                viewModel.editarMeta(meta.idMeta, nuevoTitulo, nuevoMonto)
+                metaParaEditar = null
+            }
+        )
+    }
 }
 
 @Composable
 fun MetaCard(
     meta: MetaAhorro,
     progreso: Float,
-    tarjetaColor: Color,
-    textoBlanco: Color,
-    textoGrisSecundario: Color,
-    colorProgresoAzul: Color
+    onEdit: (MetaAhorro) -> Unit,
+    onDelete: (MetaAhorro) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = tarjetaColor)
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Text(text = "OBJETIVO", fontSize = 10.sp, color = textoGrisSecundario, fontWeight = FontWeight.Bold)
+        Column(modifier = Modifier.padding(24.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "OBJETIVO",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+                
+                Row {
+                    IconButton(onClick = { onEdit(meta) }, modifier = Modifier.size(24.dp)) {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.Edit,
+                            contentDescription = "Editar",
+                            tint = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(onClick = { onDelete(meta) }, modifier = Modifier.size(24.dp)) {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.Delete,
+                            contentDescription = "Eliminar",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
             Text(
                 text = meta.titulo,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = textoBlanco
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text(text = "Ahorrado", fontSize = 12.sp, color = textoGrisSecundario)
-                    Text(text = "\$${meta.montoAcumulado}", fontSize = 18.sp, color = textoBlanco, fontWeight = FontWeight.SemiBold)
+                    Text(text = "Ahorrado", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                    Text(text = "\$${meta.montoAcumulado}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(text = "Meta", fontSize = 12.sp, color = textoGrisSecundario)
-                    Text(text = "\$${meta.montoObjetivo}", fontSize = 18.sp, color = textoBlanco, fontWeight = FontWeight.SemiBold)
+                    Text(text = "Meta", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                    Text(text = "\$${meta.montoObjetivo}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
                 }
             }
 
@@ -171,33 +250,80 @@ fun MetaCard(
 
             LinearProgressIndicator(
                 progress = { progreso.coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().height(8.dp),
-                color = colorProgresoAzul,
-                trackColor = Color(0xFF0F172A)
+                modifier = Modifier.fillMaxWidth().height(2.dp).clip(RoundedCornerShape(1.dp)),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
 
             Text(
                 text = "${(progreso * 100).toInt()}% Completado",
-                fontSize = 12.sp,
-                color = colorProgresoAzul,
-                modifier = Modifier.align(Alignment.End).padding(top = 4.dp),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.align(Alignment.End).padding(top = 8.dp),
                 fontWeight = FontWeight.Bold
             )
             
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
-            HorizontalDivider(color = textoGrisSecundario.copy(alpha = 0.1f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
             Text(
                 text = "💡 ${meta.mensajeMotivacional}",
-                fontSize = 13.sp,
-                color = textoBlanco.copy(alpha = 0.8f),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
             )
         }
     }
+}
+
+@Composable
+fun EditMetaDialog(
+    meta: MetaAhorro,
+    onDismiss: () -> Unit,
+    onConfirm: (String, Double) -> Unit
+) {
+    var titulo by remember { mutableStateOf(meta.titulo) }
+    var monto by remember { mutableStateOf(meta.montoObjetivo.toString()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Editar Meta de Ahorro") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = titulo,
+                    onValueChange = { titulo = it },
+                    label = { Text("¿Qué quieres ahorrar?") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = monto,
+                    onValueChange = { monto = it },
+                    label = { Text("Monto Objetivo ($)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { 
+                val m = monto.toDoubleOrNull() ?: 0.0
+                if (titulo.isNotBlank() && m > 0) {
+                    onConfirm(titulo, m)
+                }
+            }) {
+                Text("Guardar Cambios")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
+        }
+    )
 }
 
 @Composable

@@ -16,13 +16,15 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import android.util.Log
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation as ComposeVisualTransformation
 import com.example.proyectfinanzasinvisibles.R
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.platform.LocalFocusManager
 import com.example.proyectfinanzasinvisibles.backend.repositories.AuthRepository
 import com.example.proyectfinanzasinvisibles.frontend.ui.theme.StealthMonochromeTheme
 import com.example.proyectfinanzasinvisibles.frontend.ui.components.BounceButton
@@ -41,6 +43,7 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
     val authRepository = remember { AuthRepository() }
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
+    val focusManager = LocalFocusManager.current
     
     var isLogin by remember { mutableStateOf(true) }
     var email by remember { mutableStateOf("") }
@@ -73,7 +76,12 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
         
         StealthMonochromeTheme {
             Surface(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { focusManager.clearFocus() },
                 color = MaterialTheme.colorScheme.background
             ) {
                 Column(
@@ -128,9 +136,23 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
                             Spacer(modifier = Modifier.height(16.dp))
                             StealthTextField(
                                 value = fechaNacimiento,
-                                onValueChange = { 
-                                    if (it.length <= 8) {
-                                        fechaNacimiento = it.filter { char -> char.isDigit() }
+                                onValueChange = { input ->
+                                    val digits = input.filter { it.isDigit() }
+                                    if (digits.length <= 8) {
+                                        // Validación básica de entrada (Día 0-3, Mes 0-1)
+                                        val isValidInput = when (digits.length) {
+                                            1 -> digits[0].digitToInt() <= 3
+                                            2 -> digits.toInt() in 1..31
+                                            3 -> digits[2].digitToInt() <= 1
+                                            4 -> {
+                                                val month = digits.substring(2, 4).toInt()
+                                                month in 1..12
+                                            }
+                                            else -> true
+                                        }
+                                        if (isValidInput) {
+                                            fechaNacimiento = digits
+                                        }
                                     }
                                 },
                                 label = s.birthDate,
@@ -142,7 +164,7 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
                             StealthTextField(
                                 value = ciudad,
                                 onValueChange = { ciudad = it },
-                                label = if (s.language == "Language") "CITY" else "CIUDAD",
+                                label = s.city,
                                 trailingIcon = {
                                     IconButton(onClick = { requestLocation() }) {
                                         Icon(
@@ -251,22 +273,27 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
                                 scope.launch {
                                     isLoading = true
                                     errorMsg = null
-                                    if (isLogin) {
-                                        val result = authRepository.login(trimmedEmail, password)
-                                        if (result.isSuccess) {
-                                            onLoginSuccess()
+                                    try {
+                                        if (isLogin) {
+                                            val result = authRepository.login(trimmedEmail, password)
+                                            if (result.isSuccess) {
+                                                onLoginSuccess()
+                                            } else {
+                                                errorMsg = result.exceptionOrNull()?.message ?: s.invalidCredentials
+                                            }
                                         } else {
-                                            errorMsg = s.invalidCredentials
+                                            val result = authRepository.signUp(trimmedEmail, password, nombre, apellido, fechaNacimiento, ciudad)
+                                            if (result.isSuccess) {
+                                                onLoginSuccess()
+                                            } else {
+                                                errorMsg = result.exceptionOrNull()?.message ?: s.initializationFailed
+                                            }
                                         }
-                                    } else {
-                                        val result = authRepository.signUp(trimmedEmail, password, nombre, apellido, fechaNacimiento, ciudad)
-                                        if (result.isSuccess) {
-                                            onLoginSuccess()
-                                        } else {
-                                            errorMsg = s.initializationFailed
-                                        }
+                                    } catch (e: Exception) {
+                                        errorMsg = e.message ?: "Error inesperado"
+                                    } finally {
+                                        isLoading = false
                                     }
-                                    isLoading = false
                                 }
                             },
                             modifier = Modifier.fillMaxWidth().height(56.dp),

@@ -21,7 +21,7 @@ actual class MetaRepository {
             
             result.documents.mapNotNull { doc ->
                 MetaAhorro(
-                    idMeta = doc.id.hashCode(),
+                    idMeta = doc.id,
                     titulo = doc.getString("titulo") ?: "",
                     montoObjetivo = doc.getDouble("montoObjetivo") ?: 0.0,
                     montoAcumulado = doc.getDouble("montoAcumulado") ?: 0.0,
@@ -63,6 +63,30 @@ actual class MetaRepository {
                 .await()
             true
         } catch (e: Exception) {
+            false
+        }
+    }
+
+    actual suspend fun eliminarMeta(docId: String): Boolean {
+        return try {
+            firestore.collection("metas").document(docId).delete().await()
+            true
+        } catch (e: Exception) {
+            Log.e("MetaRepository", "Error eliminando meta: ${e.message}")
+            false
+        }
+    }
+
+    actual suspend fun editarMeta(docId: String, titulo: String, objetivo: Double): Boolean {
+        return try {
+            val updates = mapOf(
+                "titulo" to titulo,
+                "montoObjetivo" to objetivo
+            )
+            firestore.collection("metas").document(docId).update(updates).await()
+            true
+        } catch (e: Exception) {
+            Log.e("MetaRepository", "Error editando meta: ${e.message}")
             false
         }
     }

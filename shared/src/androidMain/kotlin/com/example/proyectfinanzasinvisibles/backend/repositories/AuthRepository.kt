@@ -100,9 +100,9 @@ actual class AuthRepository {
         return try {
             val user = auth.currentUser ?: return Result.failure(Exception("No user logged in"))
             
-            // Si el email cambió, actualizarlo en Firebase Auth
+            // Si el email cambió, solicitar verificación para el nuevo email (Reemplaza al deprecado updateEmail)
             if (email != user.email) {
-                user.updateEmail(email).await()
+                user.verifyBeforeUpdateEmail(email).await()
             }
 
             val updates = mapOf(

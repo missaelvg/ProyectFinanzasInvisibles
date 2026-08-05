@@ -20,7 +20,7 @@ import com.example.proyectfinanzasinvisibles.frontend.ui.*
 import kotlinx.coroutines.launch
 
 @Composable
-fun AnalisisScreen() {
+fun AnalisisScreen(onNavToHistory: () -> Unit = {}) {
     val s = LocalStrings.current
     var inputText by remember { mutableStateOf("") }
     var resultado by remember { mutableStateOf(if (s.language == "Language") "Enter an expense to analyze..." else "Ingresa un gasto para analizar...") }
@@ -75,22 +75,36 @@ fun AnalisisScreen() {
             onClick = {
                 if (inputText.isBlank()) return@BounceButton
                 scope.launch {
-                    isLoading = true
-                    resultado = if (s.language == "Language") "Analyzing with AI..." else "Analizando con IA..."
-                    
-                    val nuevoGasto = geminiHelper.clasificarGasto(inputText)
-                    val exito = gastoRepository.sincronizarGasto(nuevoGasto)
-                    
-                    if (exito) {
+                    try {
+                        isLoading = true
+                        resultado = if (s.language == "Language") "Analyzing with IA..." else "Analizando con IA..."
+                        
+                        val nuevoGasto = geminiHelper.clasificarGasto(inputText)
+                        
+                        // Actualizar localmente de inmediato para mejorar la respuesta visual
                         GastoDatabase.guardarGastoLocal(nuevoGasto)
-                        resultado = if (s.language == "Language") 
-                            "Detected: ${nuevoGasto.tipo}. Sent to History for approval." 
-                            else "Detectado: ${nuevoGasto.tipo}. Enviado a Historial para aprobación."
-                        inputText = ""
-                    } else {
-                        resultado = "Error al sincronizar con la nube."
+                        
+                        val exito = gastoRepository.sincronizarGasto(nuevoGasto)
+                        
+                        if (exito) {
+                            resultado = if (s.language == "Language") 
+                                "Detected: ${nuevoGasto.tipo}. Redirecting to History..." 
+                                else "Detectado: ${nuevoGasto.tipo}. Redirigiendo a Historial..."
+                            inputText = ""
+                            
+                            // Pequeña pausa para que el usuario lea el resultado antes de navegar
+                            kotlinx.coroutines.delay(1500)
+                            onNavToHistory()
+                        } else {
+                            resultado = if (s.language == "Language")
+                                "Detected locally: ${nuevoGasto.tipo}. Cloud sync failed (Check backend)."
+                                else "Detectado localmente: ${nuevoGasto.tipo}. Error al sincronizar (Backend lento o caído)."
+                        }
+                    } catch (e: Exception) {
+                        resultado = "Error: ${e.message}"
+                    } finally {
+                        isLoading = false
                     }
-                    isLoading = false
                 }
             },
             enabled = !isLoading,

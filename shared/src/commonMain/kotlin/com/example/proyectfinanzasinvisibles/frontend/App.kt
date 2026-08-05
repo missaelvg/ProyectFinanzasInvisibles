@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,12 +13,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import com.example.proyectfinanzasinvisibles.frontend.ui.*
 import com.example.proyectfinanzasinvisibles.frontend.ui.screens.*
 import com.example.proyectfinanzasinvisibles.frontend.ui.theme.StealthMonochromeTheme
 import com.example.proyectfinanzasinvisibles.frontend.ui.components.*
-import com.example.proyectfinanzasinvisibles.backend.repositories.AuthRepository
 
 enum class Screen {
     Onboarding, Home, History, Alerts, Goals, Analisis, Settings, EditProfile, Configuracion
@@ -28,6 +32,7 @@ enum class Screen {
 @Preview
 fun App(onLogout: () -> Unit = {}) {
     var language by remember { mutableStateOf(Language.ES) }
+    val focusManager = LocalFocusManager.current
     
     ProvideStrings(language) {
         val s = LocalStrings.current
@@ -38,8 +43,17 @@ fun App(onLogout: () -> Unit = {}) {
             if (currentScreen == Screen.Onboarding) {
                 OnboardingScreen(onStartClick = { currentScreen = Screen.Home })
             } else {
-                Scaffold(
-                    topBar = {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { focusManager.clearFocus() },
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    Scaffold(
+                        topBar = {
                         if (currentScreen != Screen.Home && currentScreen != Screen.Onboarding) {
                             TopAppBar(
                                 title = { },
@@ -108,7 +122,7 @@ fun App(onLogout: () -> Unit = {}) {
                             Screen.History -> HistoryScreen()
                             Screen.Alerts -> AlertasScreen()
                             Screen.Goals -> MetasScreen()
-                            Screen.Analisis -> AnalisisScreen()
+                            Screen.Analisis -> AnalisisScreen(onNavToHistory = { currentScreen = Screen.History })
                             Screen.Settings -> SettingsScreen(
                                 onLogout = onLogout,
                                 onEditProfile = { currentScreen = Screen.EditProfile },
@@ -125,6 +139,7 @@ fun App(onLogout: () -> Unit = {}) {
             }
         }
     }
+}
 }
 
 @Composable
@@ -228,7 +243,7 @@ fun SettingsScreen(
                 contentColor = MaterialTheme.colorScheme.onErrorContainer
             )
         ) {
-            Icon(Icons.Default.Logout, contentDescription = null, modifier = Modifier.size(20.dp))
+            Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(12.dp))
             Text(s.logout, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
         }
@@ -244,7 +259,7 @@ fun LanguageButton(label: String, isSelected: Boolean, onClick: () -> Unit, modi
             containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
             contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
         ),
-        shape = MaterialTheme.shapes.small
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
     ) {
         Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
     }

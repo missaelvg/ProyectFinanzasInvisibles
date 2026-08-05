@@ -38,7 +38,7 @@ class MetasViewModel {
 
     fun crearMeta(titulo: String, objetivo: Double) {
         val nuevaMeta = MetaAhorro(
-            idMeta = 0,
+            idMeta = "",
             titulo = titulo,
             montoObjetivo = objetivo,
             montoAcumulado = 0.0,
@@ -48,6 +48,20 @@ class MetasViewModel {
         )
         scope.launch {
             val exito = repository.guardarMeta(nuevaMeta)
+            if (exito) cargarMetas()
+        }
+    }
+
+    fun eliminarMeta(id: String) {
+        scope.launch {
+            val exito = repository.eliminarMeta(id)
+            if (exito) cargarMetas()
+        }
+    }
+
+    fun editarMeta(id: String, titulo: String, objetivo: Double) {
+        scope.launch {
+            val exito = repository.editarMeta(id, titulo, objetivo)
             if (exito) cargarMetas()
         }
     }
