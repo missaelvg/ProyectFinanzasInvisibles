@@ -37,6 +37,10 @@ class NotificationReaderService : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         super.onNotificationPosted(sbn)
 
+        val packageName = sbn?.packageName ?: ""
+        // EVITAR BUCLE: Si la notificación es de nuestra propia app, ignorarla
+        if (packageName == "com.example.proyectfinanzasinvisibles") return
+
         val extras = sbn?.notification?.extras ?: return
         val title = extras.getString("android.title") ?: ""
         val text = extras.getCharSequence("android.text")?.toString() ?: ""

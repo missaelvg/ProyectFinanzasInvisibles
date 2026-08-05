@@ -305,10 +305,7 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
                                             }
                                         }
                                     } catch (e: TimeoutCancellationException) {
-                                        // En caso de timeout, si es registro, es probable que la cuenta sí se haya creado
-                                        // pero Firestore esté lento. Intentamos entrar de todos modos.
-                                        if (!isLogin) onLoginSuccess() 
-                                        else errorMsg = "Error de red: El servidor no responde"
+                                        errorMsg = "Error de red: El servidor no responde. Revisa tu conexión."
                                     } catch (e: Exception) {
                                         errorMsg = e.message ?: "Error inesperado"
                                     } finally {

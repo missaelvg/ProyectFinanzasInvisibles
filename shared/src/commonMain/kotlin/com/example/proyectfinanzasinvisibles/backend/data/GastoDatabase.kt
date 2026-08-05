@@ -4,6 +4,7 @@ import androidx.compose.runtime.mutableStateListOf
 
 object GastoDatabase {
     private val _gastos = mutableStateListOf<Gasto>()
+    val gastos: List<Gasto> get() = _gastos
 
     fun inicializarGastos(nuevosGastos: List<Gasto>) {
         _gastos.clear()
@@ -11,7 +12,9 @@ object GastoDatabase {
     }
 
     fun guardarGastoLocal(gasto: Gasto) {
-        _gastos.add(0, gasto)
+        if (_gastos.none { it.id == gasto.id }) {
+            _gastos.add(0, gasto)
+        }
     }
 
     fun aceptarGasto(id: String) {
@@ -26,6 +29,10 @@ object GastoDatabase {
 
     fun eliminarGasto(gasto: Gasto) {
         _gastos.remove(gasto)
+    }
+
+    fun limpiarGastosRechazados() {
+        _gastos.removeAll { it.estado == "Rechazado" }
     }
 
     fun limpiarBaseDeDatos() {

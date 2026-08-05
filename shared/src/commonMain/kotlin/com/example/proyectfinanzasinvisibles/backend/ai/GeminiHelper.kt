@@ -1,7 +1,7 @@
 package com.example.proyectfinanzasinvisibles.backend.ai
 
 import com.example.proyectfinanzasinvisibles.backend.data.Gasto
-import kotlin.time.Clock
+import kotlinx.datetime.Clock
 
 /**
  * Helper para interactuar con la IA de Gemini para clasificar gastos.
@@ -21,49 +21,66 @@ class GeminiHelper {
             "ERROR"
         }
 
-        val esHormigaIA = respuestaIA.contains("Hormiga", ignoreCase = true) || 
-                         respuestaIA.contains("Antojo", ignoreCase = true)
-        
         val textoLimpio = mensajeTexto.lowercase()
-        
-        // Local Fallback / Supplemental logic
-        val esHormigaLocal = textoLimpio.contains("café") || 
+        val respuestaLimpia = respuestaIA.lowercase()
+
+        // 1. DETECCIÓN DE GASTOS FIJOS (Prioridad Máxima)
+        val esFijo = textoLimpio.contains("renta") || 
+                     textoLimpio.contains("luz") || 
+                     textoLimpio.contains("agua") || 
+                     textoLimpio.contains("internet") ||
+                     textoLimpio.contains("netflix") || 
+                     textoLimpio.contains("spotify") ||
+                     textoLimpio.contains("seguro") ||
+                     textoLimpio.contains("colegiatura")
+
+        // 2. DETECCIÓN DE GASTOS HORMIGA (Cosas pequeñas e innecesarias)
+        val esHormiga = (respuestaLimpia.contains("hormiga") && !respuestaLimpia.contains("no es")) || 
+                        respuestaLimpia.contains("antojo") || 
+                        textoLimpio.contains("café") || 
                         textoLimpio.contains("starbucks") || 
                         textoLimpio.contains("oxxo") || 
                         textoLimpio.contains("papas") || 
                         textoLimpio.contains("dulces") || 
-                        textoLimpio.contains("netflix") || 
-                        textoLimpio.contains("spotify") || 
-                        textoLimpio.contains("antojo")
+                        textoLimpio.contains("coca") ||
+                        textoLimpio.contains("sabritas") ||
+                        textoLimpio.contains("tiendita")
 
-        val esHormiga = esHormigaIA || (respuestaIA == "ERROR" && esHormigaLocal)
+        // 3. DETECCIÓN DE GASTOS NORMALES/VARIABLES (Supervivencia/Necesidad)
+        val esVariable = textoLimpio.contains("walmart") || 
+                         textoLimpio.contains("soriana") || 
+                         textoLimpio.contains("gasolina") || 
+                         textoLimpio.contains("farmacia") || 
+                         textoLimpio.contains("despensa") || 
+                         textoLimpio.contains("comida") ||
+                         textoLimpio.contains("uber") ||
+                         textoLimpio.contains("didi")
 
-        val esNormal = textoLimpio.contains("renta") || 
-                       textoLimpio.contains("despensa") || 
-                       textoLimpio.contains("servicios") || 
-                       textoLimpio.contains("luz") || 
-                       textoLimpio.contains("agua") || 
-                       textoLimpio.contains("walmart")
-
-        val tipoClasificado = when {
-            esHormiga -> "Gasto Hormiga"
-            esNormal -> "Gasto Normal"
-            else -> if (respuestaIA != "ERROR") "Gasto Normal" else "Gasto Normal"
+        // Asignación de Categoría Final
+        val categoriaFinal = when {
+            esFijo -> "Fijo"
+            esHormiga -> "Hormiga"
+            esVariable -> "Variable"
+            else -> "Variable" // Por defecto si no estamos seguros
         }
 
+        val tipoClasificado = if (categoriaFinal == "Hormiga") "Gasto Hormiga" else "Gasto Normal"
+
+        // Extraer monto
         val montoExtraido = try {
-            "\\d+(\\.\\d+)?".toRegex().find(mensajeTexto)?.value?.toDouble() ?: 0.0
+            val match = "\\$?(\\d+([.,]\\d+)?)".toRegex().find(mensajeTexto)
+            match?.groupValues?.get(1)?.replace(",", ".")?.toDouble() ?: 0.0
         } catch (_: Exception) {
             0.0
         }
 
-        val now = Clock.System.now().toEpochMilliseconds()
+        val now = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
 
         return Gasto(
             id = "ID-$now",
             descripcion = if (respuestaIA != "ERROR" && respuestaIA.length < 100) "$mensajeTexto ($respuestaIA)" else mensajeTexto,
             monto = montoExtraido,
-            categoria = if (esHormiga) "Hormiga" else "Fijo/Variable",
+            categoria = categoriaFinal,
             tipo = tipoClasificado,
             estado = "Pendiente",
             fecha = now

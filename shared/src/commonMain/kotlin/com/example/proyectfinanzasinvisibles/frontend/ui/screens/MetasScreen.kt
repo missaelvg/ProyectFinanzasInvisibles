@@ -25,17 +25,31 @@ import com.example.proyectfinanzasinvisibles.frontend.ui.*
 fun MetasScreen() {
     val s = LocalStrings.current
     val viewModel = remember { MetasViewModel() }
+    
+    // Observamos los gastos de forma reactiva
+    val gastos = GastoDatabase.gastos
+    
+    // Forzar recarga al entrar a la pantalla
+    LaunchedEffect(Unit) {
+        viewModel.cargarMetas()
+    }
+
     val metas = viewModel.metas
     val isLoading = viewModel.isLoading
 
-    val gastos = GastoDatabase.obtenerGastosLocales()
-    val totalHormigaMes = remember(gastos) {
+    val totalHormigaMes = remember(gastos.size, gastos.map { it.estado }) {
         gastos.filter { (it.categoria == "Hormiga" || it.tipo == "Gasto Hormiga") && it.estado == "Aceptado" }
             .sumOf { it.monto }
     }
 
     var showDialog by remember { mutableStateOf(false) }
     var metaParaEditar by remember { mutableStateOf<MetaAhorro?>(null) }
+    var showApplySavingsDialog by remember { mutableStateOf(false) }
+
+    // Consideramos "Ahorro Potencial" los gastos que el usuario RECHAZÓ (decidió no gastar)
+    val ahorroPotencial = remember(gastos.size, gastos.map { it.estado }) {
+        gastos.filter { it.estado == "Rechazado" }.sumOf { it.monto }
+    }
 
     Column(
         modifier = Modifier
@@ -50,68 +64,60 @@ fun MetasScreen() {
             modifier = Modifier.padding(top = 8.dp, bottom = 24.dp)
         )
 
+        // Tarjeta de Gasto Hormiga (Actual)
         Card(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
             shape = RoundedCornerShape(8.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = s.weeklyLeak,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(MaterialTheme.colorScheme.primary, CircleShape)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        text = "$${totalHormigaMes.toInt()}",
-                        style = MaterialTheme.typography.displayLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Text(
-                        text = "MXN",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                }
-                
+            Column(modifier = Modifier.padding(20.dp)) {
                 Text(
-                    text = s.accumulatedWeekly,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                val feedback = when {
-                    totalHormigaMes < 300 -> "¡Eres un maestro del ahorro! Sigue así."
-                    totalHormigaMes < 800 -> "Buen control, pero podrías ahorrar un poco más."
-                    else -> "Tus gastos hormiga están altos este mes. ¡Ajusta tu presupuesto!"
-                }
-                
-                Text(
-                    text = feedback,
+                    text = s.weeklyLeak,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
+                    color = MaterialTheme.colorScheme.outline
                 )
+                Text(
+                    text = "$${totalHormigaMes.toInt()}",
+                    style = MaterialTheme.typography.displayMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+
+        // NUEVA: Tarjeta de Ahorro Potencial (Lo que evitaste gastar)
+        if (ahorroPotencial > 0) {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "AHORRO POR GASTOS EVITADOS",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "$${ahorroPotencial.toInt()}",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    
+                    Button(
+                        onClick = { showApplySavingsDialog = true },
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("APLICAR", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
             }
         }
 
@@ -180,6 +186,54 @@ fun MetasScreen() {
             }
         )
     }
+
+    if (showApplySavingsDialog) {
+        ApplySavingsDialog(
+            monto = ahorroPotencial,
+            metas = metas,
+            onDismiss = { showApplySavingsDialog = false },
+            onConfirm = { idMeta ->
+                viewModel.sumarAhorroAMeta(idMeta, ahorroPotencial)
+                showApplySavingsDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+fun ApplySavingsDialog(
+    monto: Double,
+    metas: List<MetaAhorro>,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Aplicar Ahorro a Meta") },
+        text = {
+            Column {
+                Text("Tienes $${monto.toInt()} ahorrados al evitar gastos innecesarios. ¿A qué meta quieres aplicarlos?")
+                Spacer(modifier = Modifier.height(16.dp))
+                LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                    items(metas) { meta ->
+                        TextButton(
+                            onClick = { onConfirm(meta.idMeta) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(meta.titulo, color = MaterialTheme.colorScheme.onSurface)
+                                Text("${( (meta.montoAcumulado/meta.montoObjetivo)*100 ).toInt()}%", color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cerrar") }
+        }
+    )
 }
 
 @Composable

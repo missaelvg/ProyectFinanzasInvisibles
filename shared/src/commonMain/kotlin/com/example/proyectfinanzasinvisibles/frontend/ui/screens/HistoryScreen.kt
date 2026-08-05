@@ -27,7 +27,7 @@ fun HistoryScreen() {
     val scope = rememberCoroutineScope()
     val gastoRepository = remember { GastoRepository() }
     
-    val todosLosGastos = GastoDatabase.obtenerGastosLocales()
+    val todosLosGastos = GastoDatabase.gastos
     val gastosPendientes = todosLosGastos.filter { it.estado == "Pendiente" }
     
     Column(
@@ -66,7 +66,16 @@ fun HistoryScreen() {
                         }
                     },
                     onRechazar = {
-                        GastoDatabase.eliminarGasto(gasto)
+                        scope.launch {
+                            // Lo marcamos como Rechazado para que sume al ahorro potencial en Metas
+                            val exito = gastoRepository.actualizarEstadoGasto(gasto.id, "Rechazado")
+                            if (exito) {
+                                val nuevosGastos = GastoDatabase.gastos.map {
+                                    if (it.id == gasto.id) it.copy(estado = "Rechazado") else it
+                                }
+                                GastoDatabase.inicializarGastos(nuevosGastos)
+                            }
+                        }
                     }
                 )
             }

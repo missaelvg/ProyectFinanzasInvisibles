@@ -36,7 +36,7 @@ fun DashboardScreen() {
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
     
-    var gastos by remember { mutableStateOf(GastoDatabase.obtenerGastosLocales()) }
+    val gastos = GastoDatabase.gastos
     var streak by remember { mutableStateOf(0) }
     
     LaunchedEffect(Unit) {
@@ -48,7 +48,6 @@ fun DashboardScreen() {
         val gastosFirebase = gastoRepository.obtenerGastos()
         if (gastosFirebase.isNotEmpty()) {
             GastoDatabase.inicializarGastos(gastosFirebase)
-            gastos = GastoDatabase.obtenerGastosLocales()
         }
     }
 
@@ -158,11 +157,10 @@ fun DashboardScreen() {
                         val exito = gastoRepository.actualizarEstadoGasto(gasto.id, nuevoEstado)
                         if (exito) {
                             // Actualizar localmente
-                            val nuevosGastos = GastoDatabase.obtenerGastosLocales().map {
+                            val nuevosGastos = GastoDatabase.gastos.map {
                                 if (it.id == gasto.id) it.copy(estado = nuevoEstado) else it
                             }
                             GastoDatabase.inicializarGastos(nuevosGastos)
-                            gastos = GastoDatabase.obtenerGastosLocales()
                         }
                     }
                 }

@@ -25,20 +25,30 @@ class MetasViewModel {
 
     fun cargarMetas() {
         scope.launch {
-            isLoading = true
-            metas = repository.obtenerMetas()
-            isLoading = false
+            try {
+                isLoading = true
+                val nuevasMetas = repository.obtenerMetas()
+                metas = nuevasMetas
+                // Log para depuración
+                println("Metas cargadas: ${nuevasMetas.size}")
+            } catch (e: Exception) {
+                println("Error cargando metas: ${e.message}")
+            } finally {
+                isLoading = false
+            }
         }
     }
 
     fun calcularPorcentajeProgreso(meta: MetaAhorro): Float {
-        if (meta.montoObjetivo == 0.0) return 0f
-        return (meta.montoAcumulado / meta.montoObjetivo).toFloat()
+        if (meta.montoObjetivo <= 0.0) return 0f
+        return (meta.montoAcumulado / meta.montoObjetivo).toFloat().coerceIn(0f, 1f)
     }
 
     fun crearMeta(titulo: String, objetivo: Double) {
+        if (titulo.isBlank() || objetivo <= 0) return
+
         val nuevaMeta = MetaAhorro(
-            idMeta = "",
+            idMeta = "temp-${(100..999).random()}",
             titulo = titulo,
             montoObjetivo = objetivo,
             montoAcumulado = 0.0,
@@ -46,9 +56,14 @@ class MetasViewModel {
             mejorRachaDias = 0,
             mensajeMotivacional = "¡Nueva meta creada! Empieza a ahorrar hoy."
         )
+        
         scope.launch {
+            isLoading = true
             val exito = repository.guardarMeta(nuevaMeta)
-            if (exito) cargarMetas()
+            if (exito) {
+                cargarMetas()
+            }
+            isLoading = false
         }
     }
 
@@ -63,6 +78,37 @@ class MetasViewModel {
         scope.launch {
             val exito = repository.editarMeta(id, titulo, objetivo)
             if (exito) cargarMetas()
+        }
+    }
+
+    fun sumarAhorroAMeta(idMeta: String, monto: Double) {
+        val meta = metas.find { it.idMeta == idMeta } ?: return
+        val nuevoAcumulado = meta.montoAcumulado + monto
+        
+        scope.launch {
+            isLoading = true
+            // 1. Actualizar la meta en Firestore
+            val exitoMeta = repository.actualizarProgresoMeta(idMeta, nuevoAcumulado)
+            
+            if (exitoMeta) {
+                // 2. Marcar los gastos como "Aplicado" en Firestore para que no se repitan
+                val gastoRepo = com.example.proyectfinanzasinvisibles.backend.repositories.GastoRepository()
+                val gastosRechazados = com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase.gastos
+                    .filter { it.estado == "Rechazado" }
+                
+                gastosRechazados.forEach { gasto ->
+                    gastoRepo.actualizarEstadoGasto(gasto.id, "Aplicado")
+                }
+                
+                // 3. Actualizar la base de datos local
+                val nuevosGastosLocales = com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase.gastos.map {
+                    if (it.estado == "Rechazado") it.copy(estado = "Aplicado") else it
+                }
+                com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase.inicializarGastos(nuevosGastosLocales)
+                
+                cargarMetas()
+            }
+            isLoading = false
         }
     }
 }
