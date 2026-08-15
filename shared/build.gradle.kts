@@ -48,10 +48,15 @@ kotlin {
     sourceSets {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
+            implementation(libs.androidx.activity.compose)
+            implementation(libs.androidx.core.ktx)
             implementation("io.ktor:ktor-client-okhttp:3.5.0")
             implementation(project.dependencies.platform(libs.firebase.bom))
             implementation(libs.firebase.auth)
             implementation(libs.firebase.firestore)
+        }
+        iosMain.dependencies {
+            implementation("io.ktor:ktor-client-darwin:3.5.0")
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -72,6 +77,10 @@ kotlin {
         }
         jsMain.dependencies {
             implementation(libs.wrappers.browser)
+            implementation("io.ktor:ktor-client-js:3.5.0")
+        }
+        wasmJsMain.dependencies {
+            implementation("io.ktor:ktor-client-js:3.5.0")
         }
     }
 }

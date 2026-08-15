@@ -14,24 +14,26 @@ import com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase
 import com.example.proyectfinanzasinvisibles.frontend.ui.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import kotlinx.datetime.Clock
 
 @Composable
 fun AlertasScreen() {
     val s = LocalStrings.current
+    val weekStart = Clock.System.now().toEpochMilliseconds() - 7L * 24L * 60L * 60L * 1000L
     val gastos = GastoDatabase.obtenerGastosLocales()
-    val antojosGastos = gastos.filter { it.categoria == "Antojos" || it.categoria == "Café" }
-    
-    val backgroundColor = Color(0xFF0F1115)
+        .filter { it.estado == "Aceptado" && it.fecha >= weekStart }
+    val gastosHormiga = gastos.filter { it.categoria == "Hormiga" || it.tipo == "Gasto Hormiga" }
+    val totalSemanal = gastos.sumOf { it.monto }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundColor)
+            .background(MaterialTheme.colorScheme.background)
             .padding(20.dp)
     ) {
         Text(
             text = s.alerts,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onBackground,
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(top = 24.dp)
@@ -39,30 +41,32 @@ fun AlertasScreen() {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        if (antojosGastos.isEmpty()) {
+        if (gastosHormiga.isEmpty() && totalSemanal <= 1000.0) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     text = s.noNotifications,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.outline,
                     fontSize = 16.sp,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                item {
-                    AlertCard(
-                        title = "Alerta de Gasto Hormiga",
-                        description = "Has realizado ${antojosGastos.size} gastos en antojos recientemente por un total de $${antojosGastos.sumOf { it.monto }.toInt()}.",
-                        color = Color(0xFFFFA292)
-                    )
+                if (gastosHormiga.isNotEmpty()) {
+                    item {
+                        AlertCard(
+                            title = "Alerta de gasto hormiga",
+                            description = "Registraste ${gastosHormiga.size} gastos hormiga esta semana por $${gastosHormiga.sumOf { it.monto }.toInt()} MXN.",
+                            color = Color(0xFFFFA292)
+                        )
+                    }
                 }
                 
-                if (gastos.sumOf { it.monto } > 1000) {
+                if (totalSemanal > 1000.0) {
                     item {
                         AlertCard(
                             title = "Presupuesto Semanal",
-                            description = "Has superado los $1,000 en gastos totales esta semana. Te recomendamos revisar tu historial.",
+                            description = "Tus gastos aceptados de los últimos 7 días suman $${totalSemanal.toInt()} MXN. Revisa el historial antes de seguir gastando.",
                             color = Color(0xFFFDE68A)
                         )
                     }

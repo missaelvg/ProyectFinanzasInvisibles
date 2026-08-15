@@ -48,7 +48,7 @@ actual class MetaRepository {
                 "mejorRachaDias" to meta.mejorRachaDias,
                 "mensajeMotivacional" to meta.mensajeMotivacional
             )
-            firestore.collection("metas").add(metaData).await()
+            firestore.collection("metas").document(meta.idMeta).set(metaData).await()
             true
         } catch (e: Exception) {
             Log.e("MetaRepository", "Error guardando meta: ${e.message}")
@@ -57,10 +57,11 @@ actual class MetaRepository {
     }
 
     actual suspend fun actualizarProgresoMeta(docId: String, nuevoAcumulado: Double): Boolean {
+        val userId = auth.currentUser?.uid ?: return false
         return try {
-            firestore.collection("metas").document(docId)
-                .update("montoAcumulado", nuevoAcumulado)
-                .await()
+            val document = firestore.collection("metas").document(docId)
+            if (document.get().await().getString("userId") != userId) return false
+            document.update("montoAcumulado", nuevoAcumulado).await()
             true
         } catch (e: Exception) {
             false
@@ -68,8 +69,11 @@ actual class MetaRepository {
     }
 
     actual suspend fun eliminarMeta(docId: String): Boolean {
+        val userId = auth.currentUser?.uid ?: return false
         return try {
-            firestore.collection("metas").document(docId).delete().await()
+            val document = firestore.collection("metas").document(docId)
+            if (document.get().await().getString("userId") != userId) return false
+            document.delete().await()
             true
         } catch (e: Exception) {
             Log.e("MetaRepository", "Error eliminando meta: ${e.message}")
@@ -78,12 +82,15 @@ actual class MetaRepository {
     }
 
     actual suspend fun editarMeta(docId: String, titulo: String, objetivo: Double): Boolean {
+        val userId = auth.currentUser?.uid ?: return false
         return try {
             val updates = mapOf(
                 "titulo" to titulo,
                 "montoObjetivo" to objetivo
             )
-            firestore.collection("metas").document(docId).update(updates).await()
+            val document = firestore.collection("metas").document(docId)
+            if (document.get().await().getString("userId") != userId) return false
+            document.update(updates).await()
             true
         } catch (e: Exception) {
             Log.e("MetaRepository", "Error editando meta: ${e.message}")

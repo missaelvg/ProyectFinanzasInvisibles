@@ -1,22 +1,25 @@
 package com.example.proyectfinanzasinvisibles.frontend.ui.screens
 
-import com.example.proyectfinanzasinvisibles.backend.repositories.MetaRepository
-import com.example.proyectfinanzasinvisibles.backend.data.MetaAhorro
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.proyectfinanzasinvisibles.backend.ai.GeminiApi
+import com.example.proyectfinanzasinvisibles.backend.data.MetaAhorro
+import com.example.proyectfinanzasinvisibles.backend.repositories.MetaRepository
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
 
-class MetasViewModel {
+class MetasViewModel : ViewModel() {
     private val repository = MetaRepository()
-    private val scope = CoroutineScope(Dispatchers.Main)
-    
+    private val geminiApi = GeminiApi()
+
     var metas by mutableStateOf<List<MetaAhorro>>(emptyList())
         private set
-    
     var isLoading by mutableStateOf(false)
+        private set
+    var errorMessage by mutableStateOf<String?>(null)
         private set
 
     init {
@@ -24,90 +27,66 @@ class MetasViewModel {
     }
 
     fun cargarMetas() {
-        scope.launch {
-            try {
-                isLoading = true
-                val nuevasMetas = repository.obtenerMetas()
-                metas = nuevasMetas
-                // Log para depuración
-                println("Metas cargadas: ${nuevasMetas.size}")
-            } catch (e: Exception) {
-                println("Error cargando metas: ${e.message}")
-            } finally {
-                isLoading = false
-            }
+        viewModelScope.launch {
+            isLoading = true
+            errorMessage = null
+            runCatching { repository.obtenerMetas() }
+                .onSuccess { metas = it }
+                .onFailure { errorMessage = "No fue posible cargar las metas." }
+            isLoading = false
         }
     }
 
-    fun calcularPorcentajeProgreso(meta: MetaAhorro): Float {
-        if (meta.montoObjetivo <= 0.0) return 0f
-        return (meta.montoAcumulado / meta.montoObjetivo).toFloat().coerceIn(0f, 1f)
-    }
+    fun calcularPorcentajeProgreso(meta: MetaAhorro): Float =
+        if (meta.montoObjetivo <= 0.0) 0f
+        else (meta.montoAcumulado / meta.montoObjetivo).toFloat().coerceIn(0f, 1f)
 
     fun crearMeta(titulo: String, objetivo: Double) {
-        if (titulo.isBlank() || objetivo <= 0) return
-
-        val nuevaMeta = MetaAhorro(
-            idMeta = "temp-${(100..999).random()}",
-            titulo = titulo,
-            montoObjetivo = objetivo,
-            montoAcumulado = 0.0,
-            rachaActualDias = 0,
-            mejorRachaDias = 0,
-            mensajeMotivacional = "¡Nueva meta creada! Empieza a ahorrar hoy."
-        )
-        
-        scope.launch {
+        if (titulo.isBlank() || objetivo <= 0.0) return
+        viewModelScope.launch {
             isLoading = true
-            val exito = repository.guardarMeta(nuevaMeta)
-            if (exito) {
-                cargarMetas()
-            }
+            errorMessage = null
+            val prompt = "Da una recomendación breve y concreta para ahorrar $objetivo MXN para la meta: $titulo"
+            val recommendation = geminiApi.analizarTexto(prompt).getOrNull()
+                ?.trim()?.takeIf { it.isNotBlank() }?.take(180)
+                ?: "Aparta una cantidad fija cada semana y registra aquí cada depósito."
+            val meta = MetaAhorro(
+                idMeta = "meta-${Clock.System.now().toEpochMilliseconds()}",
+                titulo = titulo.trim(),
+                montoObjetivo = objetivo,
+                montoAcumulado = 0.0,
+                rachaActualDias = 0,
+                mejorRachaDias = 0,
+                mensajeMotivacional = recommendation
+            )
+            if (repository.guardarMeta(meta)) cargarMetas()
+            else errorMessage = "No fue posible guardar la meta."
             isLoading = false
         }
     }
 
     fun eliminarMeta(id: String) {
-        scope.launch {
-            val exito = repository.eliminarMeta(id)
-            if (exito) cargarMetas()
+        viewModelScope.launch {
+            if (repository.eliminarMeta(id)) cargarMetas()
+            else errorMessage = "No fue posible eliminar la meta."
         }
     }
 
     fun editarMeta(id: String, titulo: String, objetivo: Double) {
-        scope.launch {
-            val exito = repository.editarMeta(id, titulo, objetivo)
-            if (exito) cargarMetas()
+        viewModelScope.launch {
+            if (repository.editarMeta(id, titulo.trim(), objetivo)) cargarMetas()
+            else errorMessage = "No fue posible editar la meta."
         }
     }
 
     fun sumarAhorroAMeta(idMeta: String, monto: Double) {
-        val meta = metas.find { it.idMeta == idMeta } ?: return
-        val nuevoAcumulado = meta.montoAcumulado + monto
-        
-        scope.launch {
+        val meta = metas.firstOrNull { it.idMeta == idMeta } ?: return
+        if (monto <= 0.0) return
+        viewModelScope.launch {
             isLoading = true
-            // 1. Actualizar la meta en Firestore
-            val exitoMeta = repository.actualizarProgresoMeta(idMeta, nuevoAcumulado)
-            
-            if (exitoMeta) {
-                // 2. Marcar los gastos como "Aplicado" en Firestore para que no se repitan
-                val gastoRepo = com.example.proyectfinanzasinvisibles.backend.repositories.GastoRepository()
-                val gastosRechazados = com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase.gastos
-                    .filter { it.estado == "Rechazado" }
-                
-                gastosRechazados.forEach { gasto ->
-                    gastoRepo.actualizarEstadoGasto(gasto.id, "Aplicado")
-                }
-                
-                // 3. Actualizar la base de datos local
-                val nuevosGastosLocales = com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase.gastos.map {
-                    if (it.estado == "Rechazado") it.copy(estado = "Aplicado") else it
-                }
-                com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase.inicializarGastos(nuevosGastosLocales)
-                
-                cargarMetas()
-            }
+            val nuevoAcumulado = (meta.montoAcumulado + monto).coerceAtMost(meta.montoObjetivo)
+            if (repository.actualizarProgresoMeta(idMeta, nuevoAcumulado)) cargarMetas()
+            else errorMessage = "No fue posible registrar el ahorro."
             isLoading = false
         }
     }

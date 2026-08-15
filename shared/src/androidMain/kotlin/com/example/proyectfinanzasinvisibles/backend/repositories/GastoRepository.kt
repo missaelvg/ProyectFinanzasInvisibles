@@ -5,7 +5,9 @@ import com.example.proyectfinanzasinvisibles.backend.data.Gasto
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 import com.google.firebase.firestore.firestore
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
+import java.util.Date
 
 actual class GastoRepository {
     private val firestore = Firebase.firestore
@@ -21,11 +23,13 @@ actual class GastoRepository {
                 "tipo" to gasto.tipo,
                 "estado" to gasto.estado,
                 "userId" to currentUser.uid,
-                "timestamp" to com.google.firebase.Timestamp.now()
+                "timestamp" to com.google.firebase.Timestamp(Date(gasto.fecha))
             )
-            val docRef = firestore.collection("gastos_hormiga").add(gastoData).await()
-            // Podríamos actualizar el objeto gasto local con el ID real de Firestore si fuera necesario
-            true 
+            firestore.collection("gastos_hormiga")
+                .document(gasto.id)
+                .set(gastoData, SetOptions.merge())
+                .await()
+            true
         } catch (e: Exception) {
             Log.e("GastoRepository", "Error sincronizando: ${e.message}")
             false
@@ -33,15 +37,37 @@ actual class GastoRepository {
     }
 
     actual suspend fun actualizarEstadoGasto(gastoId: String, nuevoEstado: String): Boolean {
+        val currentUser = auth.currentUser ?: return false
         return try {
-            // Buscamos por el ID del documento
-            firestore.collection("gastos_hormiga")
-                .document(gastoId)
-                .update("estado", nuevoEstado)
-                .await()
+            val document = firestore.collection("gastos_hormiga").document(gastoId)
+            val snapshot = document.get().await()
+            if (snapshot.getString("userId") != currentUser.uid) return false
+            document.update("estado", nuevoEstado).await()
             true
         } catch (e: Exception) {
             Log.e("GastoRepository", "Error actualizando estado: ${e.message}")
+            false
+        }
+    }
+
+    actual suspend fun actualizarGasto(gasto: Gasto): Boolean {
+        val currentUser = auth.currentUser ?: return false
+        return try {
+            val document = firestore.collection("gastos_hormiga").document(gasto.id)
+            val snapshot = document.get().await()
+            if (snapshot.getString("userId") != currentUser.uid) return false
+            document.update(
+                mapOf(
+                    "descripcion" to gasto.descripcion,
+                    "monto" to gasto.monto,
+                    "categoria" to gasto.categoria,
+                    "tipo" to gasto.tipo,
+                    "estado" to gasto.estado
+                )
+            ).await()
+            true
+        } catch (e: Exception) {
+            Log.e("GastoRepository", "Error editando gasto: ${e.message}")
             false
         }
     }
@@ -63,7 +89,8 @@ actual class GastoRepository {
                     categoria = data["categoria"] as? String ?: "General",
                     tipo = data["tipo"] as? String ?: "Gasto Normal",
                     estado = data["estado"] as? String ?: "Pendiente",
-                    fecha = (data["timestamp"] as? com.google.firebase.Timestamp)?.toDate()?.time ?: 0L
+                    fecha = (data["timestamp"] as? com.google.firebase.Timestamp)?.toDate()?.time ?: 0L,
+                    sincronizado = true
                 )
             }
         } catch (e: Exception) {

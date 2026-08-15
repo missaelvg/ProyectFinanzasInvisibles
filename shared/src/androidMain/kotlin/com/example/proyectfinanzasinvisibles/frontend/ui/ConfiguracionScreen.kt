@@ -16,14 +16,20 @@ import androidx.compose.ui.Alignment
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
-import android.app.NotificationManager
-import android.content.ComponentName
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import android.os.Build
+import androidx.core.app.NotificationManagerCompat
 
 @Composable
 actual fun ConfiguracionScreen() {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val scrollState = rememberScrollState()
     
     // Estado del Servicio de Notificaciones
@@ -34,14 +40,34 @@ actual fun ConfiguracionScreen() {
     // Estado de Localización
     var isLocationEnabled by remember {
         mutableStateOf(
-            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
         )
+    }
+    var canPostNotifications by remember {
+        mutableStateOf(Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)
+    }
+
+    val locationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+        isLocationEnabled = result.values.any { it }
+    }
+    val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        canPostNotifications = granted
     }
 
     // Actualizar estados cuando se vuelve a la pantalla
-    LaunchedEffect(Unit) {
-        isServiceEnabled = isNotificationServiceEnabled(context)
-        isLocationEnabled = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                isServiceEnabled = isNotificationServiceEnabled(context)
+                isLocationEnabled = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                canPostNotifications = Build.VERSION.SDK_INT < 33 ||
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Column(
@@ -58,8 +84,7 @@ actual fun ConfiguracionScreen() {
         
         Spacer(modifier = Modifier.height(32.dp))
 
-        // SECCIÓN LECTOR DE NOTIFICACIONES (IA)
-        SectionHeader("PERMISOS DE IA")
+        SectionHeader("CAPTURA DE GASTOS")
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -85,9 +110,28 @@ actual fun ConfiguracionScreen() {
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Text(
-                    text = "Permite que la IA analice notificaciones bancarias para registrar gastos automáticamente.",
+                    text = "Los posibles cargos se envían al servicio de clasificación. Cada registro queda pendiente para que lo confirmes.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        SectionHeader("NOTIFICACIONES DE LA APP")
+        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Avisos de gastos detectados", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                Switch(
+                    checked = canPostNotifications,
+                    onCheckedChange = {
+                        if (Build.VERSION.SDK_INT >= 33 && !canPostNotifications) {
+                            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            openAppSettings(context)
+                        }
+                    }
                 )
             }
         }
@@ -101,7 +145,7 @@ actual fun ConfiguracionScreen() {
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(text = "Geolocalización de Gastos", fontWeight = FontWeight.Bold)
+                Text(text = "Ciudad durante el registro", fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -113,11 +157,9 @@ actual fun ConfiguracionScreen() {
                     Switch(
                         checked = isLocationEnabled,
                         onCheckedChange = { 
-                            // Abrir ajustes de la app para que el usuario cambie el permiso
-                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                data = android.net.Uri.fromParts("package", context.packageName, null)
-                            }
-                            context.startActivity(intent)
+                            if (!isLocationEnabled) {
+                                locationLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                            } else openAppSettings(context)
                         }
                     )
                 }
@@ -125,7 +167,7 @@ actual fun ConfiguracionScreen() {
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Text(
-                    text = "Añade automáticamente la ubicación a tus gastos para un mejor análisis de tus rutas financieras.",
+                    text = "La ubicación se usa únicamente para sugerir tu ciudad durante el registro.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline
                 )
@@ -181,7 +223,12 @@ fun StatusInfo(isServiceEnabled: Boolean) {
 }
 
 private fun isNotificationServiceEnabled(context: android.content.Context): Boolean {
-    // Usamos el nombre de la clase como string para evitar dependencia directa en shared
-    val flat = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
-    return flat != null && flat.contains("NotificationReaderService")
+    return NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+}
+
+private fun openAppSettings(context: android.content.Context) {
+    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+        data = android.net.Uri.fromParts("package", context.packageName, null)
+    }
+    context.startActivity(intent)
 }

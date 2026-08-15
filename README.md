@@ -1,42 +1,61 @@
-This is a Kotlin Multiplatform project targeting Android, iOS, Web.
+# Finanzas Invisibles
 
-* [/iosApp](./iosApp/iosApp) contains an iOS application. Even if you’re sharing your UI with Compose Multiplatform,
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
+Aplicación académica de finanzas personales que detecta posibles cargos desde notificaciones de Android, los clasifica y pide confirmación antes de incluirlos en los totales.
 
-* [/shared](./shared/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - [commonMain](./shared/src/commonMain/kotlin) is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    the [iosMain](./shared/src/iosMain/kotlin) folder would be the right place for such calls.
-    Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./shared/src/jvmMain/kotlin)
-    folder is the appropriate location.
+## Alcance actual
 
-### Running the apps
+La entrega evaluable es la aplicación Android. Comparte modelos, reglas de clasificación y UI con Kotlin Multiplatform; iOS y Web conservan implementaciones locales de demostración, sin Firebase Auth ni lectura pasiva de notificaciones.
 
-Use the run configurations provided by the run widget in your IDE's toolbar. You can also use these commands and options:
+No se utiliza autenticación biométrica. El acceso se realiza con correo y contraseña mediante Firebase Authentication.
 
-- Android app: `./gradlew :androidApp:assembleDebug`
-- Web app:
-  - Wasm target (faster, modern browsers): `./gradlew :webApp:wasmJsBrowserDevelopmentRun`
-  - JS target (slower, supports older browsers): `./gradlew :webApp:jsBrowserDevelopmentRun`
-- iOS app: open the [/iosApp](./iosApp) directory in Xcode and run it from there.
+## Flujo principal
 
-### Running tests
+1. `NotificationReaderService` recibe una notificación autorizada por el usuario.
+2. `ExpenseParser` descarta ingresos/reembolsos y extrae un monto válido.
+3. `GeminiHelper` combina la sugerencia remota con reglas locales de respaldo.
+4. El gasto se guarda primero en `GastoDatabase` con estado `Pendiente`.
+5. `GastoRepository` usa el mismo ID local como ID de Firestore.
+6. Si no hay red, `SyncGastosWorker` reintenta los registros pendientes.
+7. El usuario acepta, edita o descarta el movimiento desde Historial.
 
-Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:
+## Funciones alineadas con la Actividad Documental 11
 
-- Android tests: `./gradlew :shared:testAndroidHostTest`
-- Web tests:
-  - Wasm target: `./gradlew :shared:wasmJsTest`
-  - JS target: `./gradlew :shared:jsTest`
-- iOS tests: `./gradlew :shared:iosSimulatorArm64Test`
+- Registro e inicio de sesión con Firebase Auth.
+- Perfil extendido, cambio seguro de correo/contraseña y racha por día calendario.
+- Solicitud explícita de ubicación para sugerir la ciudad durante el registro.
+- Acceso guiado a la autorización de lectura de notificaciones.
+- Clasificación híbrida: backend Ktor/Railway y reglas regex locales.
+- Dashboard semanal, distribución por categorías, historial editable y alertas.
+- Metas con progreso, aportaciones manuales reales y recomendación con fallback.
+- Sincronización con Firestore y WorkManager.
+- Interfaz ES/EN (algunas pantallas operativas de Android permanecen en español).
 
----
+## Configuración
 
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html),
-[Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform/#compose-multiplatform),
-[Kotlin/Wasm](https://kotl.in/wasm/)…
+1. Abre el proyecto con Android Studio compatible con JDK 17.
+2. Verifica que `androidApp/google-services.json` corresponda a tu proyecto Firebase.
+3. Publica las reglas de seguridad antes de probar con datos reales:
 
-We would appreciate your feedback on Compose/Web and Kotlin/Wasm in the public Slack channel [#compose-web](https://slack-chats.kotlinlang.org/c/compose-web).
-If you face any issues, please report them on [YouTrack](https://youtrack.jetbrains.com/newIssue?project=CMP).
+   ```bash
+   firebase deploy --only firestore:rules
+   ```
+
+4. Compila e instala:
+
+   ```bash
+   ./gradlew :androidApp:assembleDebug
+   ```
+
+5. En la app, entra a **Ajustes → Configurar permisos** y habilita el lector de notificaciones. La ubicación es opcional; la ciudad también puede escribirse manualmente.
+
+## Pruebas
+
+```bash
+./gradlew :shared:testAndroidHostTest
+```
+
+Las pruebas cubren extracción de montos, separadores de miles/decimales, exclusión de ingresos y clasificación local. GitHub Actions ejecuta las pruebas y compila el APK en cada pull request.
+
+## Privacidad
+
+La app no solicita credenciales bancarias. El permiso de notificaciones permite leer contenido potencialmente sensible; debe activarse conscientemente y solo usarse con datos de prueba durante la evaluación.

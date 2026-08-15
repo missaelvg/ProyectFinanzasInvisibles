@@ -1,0 +1,3379 @@
+diff --git a/.github/workflows/android-ci.yml b/.github/workflows/android-ci.yml
+new file mode 100644
+index 0000000..6ecfbeb
+--- /dev/null
++++ b/.github/workflows/android-ci.yml
+@@ -0,0 +1,21 @@
++name: Android CI
++
++on:
++  push:
++    branches: [main]
++  pull_request:
++
++jobs:
++  build-and-test:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-java@v4
++        with:
++          distribution: temurin
++          java-version: 17
++      - uses: gradle/actions/setup-gradle@v4
++      - name: Pruebas de lógica compartida
++        run: ./gradlew :shared:testAndroidHostTest
++      - name: Compilar APK de depuración
++        run: ./gradlew :androidApp:assembleDebug
+diff --git a/.gitignore b/.gitignore
+index adfa9bf..697fbe0 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -17,3 +17,4 @@ captures
+ !*.xcworkspace/contents.xcworkspacedata
+ **/xcshareddata/WorkspaceSettings.xcsettings
+ node_modules/
++hs_err_pid*.log
+diff --git a/CAMBIOS_ACTIVIDAD_11.md b/CAMBIOS_ACTIVIDAD_11.md
+new file mode 100644
+index 0000000..d1b346e
+--- /dev/null
++++ b/CAMBIOS_ACTIVIDAD_11.md
+@@ -0,0 +1,43 @@
++# Revisión técnica para la Actividad Documental 11
++
++## Alcance de la entrega
++
++La evaluación principal se concentra en Android. La autenticación es por correo y contraseña; no forma parte del proyecto ningún mecanismo biométrico.
++
++## Correspondencia entre documento y código
++
++| Funcionalidad | Archivo principal | Verificación aplicada |
++|---|---|---|
++| Registro e inicio de sesión | `AuthScreen.kt`, `AuthRepository.kt` | Campos obligatorios, fecha real, error de cuenta existente y Firebase Auth |
++| Ubicación para ciudad | `LocationProvider.kt`, `AuthScreen.kt` | Solicitud de permiso en tiempo de ejecución y captura manual alternativa |
++| Lectura pasiva | `NotificationReaderService.kt` | Exclusión de la app propia, deduplicación y filtro de ingresos/reembolsos |
++| Clasificación híbrida | `ExpenseParser.kt`, `GeminiHelper.kt`, `GeminiApi.kt` | Validación local antes de red, fallback identificable y errores no mostrados como resultado de IA |
++| Persistencia y sincronización | `GastoDatabase.kt`, `PendingExpenseStore.kt`, `SyncGastosWorker.kt` | Guardado local primero, cola persistente e intento inmediato/periódico con red |
++| Dashboard semanal | `DashboardScreen.kt` | Solo gastos aceptados de los últimos siete días y gráfico con el mismo conjunto de datos |
++| Revisión humana | `HistoryScreen.kt` | Aceptar, editar o descartar; cambios locales pendientes de sincronización |
++| Metas | `MetasScreen.kt`, `MetasViewModel.kt` | CRUD, progreso limitado al objetivo, aportaciones manuales y recomendación con fallback |
++| Alertas | `AlertasScreen.kt`, `App.kt` | Pantalla accesible desde el icono de campana y umbrales semanales coherentes |
++| Perfil y racha | `EditProfileScreen.kt`, `AuthRepository.kt` | Reautenticación y cálculo por día calendario mediante transacción |
++| Seguridad en nube | `firestore.rules` | Acceso limitado al propietario en usuarios, gastos y metas |
++
++## Pruebas mínimas para la demostración
++
++1. Crear usuario con ciudad manual y repetir con permiso GPS.
++2. Activar el lector desde **Ajustes → Configurar permisos**.
++3. Probar `Compra con tarjeta 1234 por $120` y comprobar que el monto sea 120, no 1234.
++4. Probar `Transferencia recibida por $850` y comprobar que no se registre como gasto.
++5. Desconectar la red, registrar un gasto manual y verificar que permanezca pendiente.
++6. Reconectar la red y comprobar que WorkManager lo sincronice con el mismo ID.
++7. Editar un gasto, aceptarlo y verificar Dashboard, gráfico y alertas.
++8. Crear una meta, registrar una aportación real, editarla y eliminarla.
++9. Cerrar y volver a abrir la app en el mismo día: la racha no debe aumentar dos veces.
++10. Probar que otro usuario no pueda consultar o modificar documentos ajenos después de publicar `firestore.rules`.
++
++## Comandos de validación
++
++```bash
++./gradlew :shared:testAndroidHostTest
++./gradlew :androidApp:assembleDebug
++```
++
++El flujo de GitHub Actions ejecuta ambos comandos en cada pull request.
+diff --git a/README.md b/README.md
+index 4e3aa52..75d2705 100644
+--- a/README.md
++++ b/README.md
+@@ -1,42 +1,61 @@
+-This is a Kotlin Multiplatform project targeting Android, iOS, Web.
++# Finanzas Invisibles
+ 
+-* [/iosApp](./iosApp/iosApp) contains an iOS application. Even if you’re sharing your UI with Compose Multiplatform,
+-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
++Aplicación académica de finanzas personales que detecta posibles cargos desde notificaciones de Android, los clasifica y pide confirmación antes de incluirlos en los totales.
+ 
+-* [/shared](./shared/src) is for code that will be shared across your Compose Multiplatform applications.
+-  It contains several subfolders:
+-  - [commonMain](./shared/src/commonMain/kotlin) is for code that’s common for all targets.
+-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
+-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
+-    the [iosMain](./shared/src/iosMain/kotlin) folder would be the right place for such calls.
+-    Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./shared/src/jvmMain/kotlin)
+-    folder is the appropriate location.
++## Alcance actual
+ 
+-### Running the apps
++La entrega evaluable es la aplicación Android. Comparte modelos, reglas de clasificación y UI con Kotlin Multiplatform; iOS y Web conservan implementaciones locales de demostración, sin Firebase Auth ni lectura pasiva de notificaciones.
+ 
+-Use the run configurations provided by the run widget in your IDE's toolbar. You can also use these commands and options:
++No se utiliza autenticación biométrica. El acceso se realiza con correo y contraseña mediante Firebase Authentication.
+ 
+-- Android app: `./gradlew :androidApp:assembleDebug`
+-- Web app:
+-  - Wasm target (faster, modern browsers): `./gradlew :webApp:wasmJsBrowserDevelopmentRun`
+-  - JS target (slower, supports older browsers): `./gradlew :webApp:jsBrowserDevelopmentRun`
+-- iOS app: open the [/iosApp](./iosApp) directory in Xcode and run it from there.
++## Flujo principal
+ 
+-### Running tests
++1. `NotificationReaderService` recibe una notificación autorizada por el usuario.
++2. `ExpenseParser` descarta ingresos/reembolsos y extrae un monto válido.
++3. `GeminiHelper` combina la sugerencia remota con reglas locales de respaldo.
++4. El gasto se guarda primero en `GastoDatabase` con estado `Pendiente`.
++5. `GastoRepository` usa el mismo ID local como ID de Firestore.
++6. Si no hay red, `SyncGastosWorker` reintenta los registros pendientes.
++7. El usuario acepta, edita o descarta el movimiento desde Historial.
+ 
+-Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:
++## Funciones alineadas con la Actividad Documental 11
+ 
+-- Android tests: `./gradlew :shared:testAndroidHostTest`
+-- Web tests:
+-  - Wasm target: `./gradlew :shared:wasmJsTest`
+-  - JS target: `./gradlew :shared:jsTest`
+-- iOS tests: `./gradlew :shared:iosSimulatorArm64Test`
++- Registro e inicio de sesión con Firebase Auth.
++- Perfil extendido, cambio seguro de correo/contraseña y racha por día calendario.
++- Solicitud explícita de ubicación para sugerir la ciudad durante el registro.
++- Acceso guiado a la autorización de lectura de notificaciones.
++- Clasificación híbrida: backend Ktor/Railway y reglas regex locales.
++- Dashboard semanal, distribución por categorías, historial editable y alertas.
++- Metas con progreso, aportaciones manuales reales y recomendación con fallback.
++- Sincronización con Firestore y WorkManager.
++- Interfaz ES/EN (algunas pantallas operativas de Android permanecen en español).
+ 
+----
++## Configuración
+ 
+-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html),
+-[Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform/#compose-multiplatform),
+-[Kotlin/Wasm](https://kotl.in/wasm/)…
++1. Abre el proyecto con Android Studio compatible con JDK 17.
++2. Verifica que `androidApp/google-services.json` corresponda a tu proyecto Firebase.
++3. Publica las reglas de seguridad antes de probar con datos reales:
+ 
+-We would appreciate your feedback on Compose/Web and Kotlin/Wasm in the public Slack channel [#compose-web](https://slack-chats.kotlinlang.org/c/compose-web).
+-If you face any issues, please report them on [YouTrack](https://youtrack.jetbrains.com/newIssue?project=CMP).
+\ No newline at end of file
++   ```bash
++   firebase deploy --only firestore:rules
++   ```
++
++4. Compila e instala:
++
++   ```bash
++   ./gradlew :androidApp:assembleDebug
++   ```
++
++5. En la app, entra a **Ajustes → Configurar permisos** y habilita el lector de notificaciones. La ubicación es opcional; la ciudad también puede escribirse manualmente.
++
++## Pruebas
++
++```bash
++./gradlew :shared:testAndroidHostTest
++```
++
++Las pruebas cubren extracción de montos, separadores de miles/decimales, exclusión de ingresos y clasificación local. GitHub Actions ejecuta las pruebas y compila el APK en cada pull request.
++
++## Privacidad
++
++La app no solicita credenciales bancarias. El permiso de notificaciones permite leer contenido potencialmente sensible; debe activarse conscientemente y solo usarse con datos de prueba durante la evaluación.
+diff --git a/androidApp/src/main/AndroidManifest.xml b/androidApp/src/main/AndroidManifest.xml
+index 34e9b30..6d9810c 100644
+--- a/androidApp/src/main/AndroidManifest.xml
++++ b/androidApp/src/main/AndroidManifest.xml
+@@ -4,11 +4,9 @@
+     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+ 
+     <application
+-        android:allowBackup="true"
++        android:allowBackup="false"
+         android:icon="@mipmap/ic_launcher"
+         android:label="@string/app_name"
+         android:roundIcon="@mipmap/ic_launcher_round"
+@@ -26,9 +24,8 @@
+         </activity>
+ 
+         <service android:name=".NotificationReaderService"
+-            android:label="Servicio Lector IA Finanzas"
++            android:label="Lector de gastos de Finanzas Invisibles"
+             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+-            android:foregroundServiceType="specialUse"
+             android:exported="true">
+             <intent-filter>
+                 <action android:name="android.service.notification.NotificationListenerService" />
+diff --git a/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/MainActivity.kt b/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/MainActivity.kt
+index 56196b2..e6c09af 100644
+--- a/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/MainActivity.kt
++++ b/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/MainActivity.kt
+@@ -1,17 +1,12 @@
+ package com.example.proyectfinanzasinvisibles
+ 
+-import android.Manifest
+-import android.content.pm.PackageManager
+ import android.os.Bundle
+ import androidx.activity.ComponentActivity
+-import androidx.activity.compose.rememberLauncherForActivityResult
+ import androidx.activity.compose.setContent
+ import androidx.activity.enableEdgeToEdge
+-import androidx.activity.result.contract.ActivityResultContracts
+ import androidx.compose.runtime.*
+ import androidx.compose.ui.platform.LocalContext
+ import androidx.compose.ui.tooling.preview.Preview
+-import androidx.core.content.ContextCompat
+ import com.example.proyectfinanzasinvisibles.sync.backend.WorkManagerScheduler
+ import com.example.proyectfinanzasinvisibles.backend.repositories.AuthRepository
+ import com.example.proyectfinanzasinvisibles.auth.ui.AuthScreen
+@@ -20,8 +15,8 @@ import com.example.proyectfinanzasinvisibles.frontend.App
+ import com.example.proyectfinanzasinvisibles.frontend.ui.theme.StealthMonochromeTheme
+ import com.example.proyectfinanzasinvisibles.backend.repositories.GastoRepository
+ import com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase
+-import kotlinx.coroutines.withTimeoutOrNull
+ import android.util.Log
++import com.example.proyectfinanzasinvisibles.sync.backend.PendingExpenseStore
+ 
+ class MainActivity : ComponentActivity() {
+     override fun onCreate(savedInstanceState: Bundle?) {
+@@ -36,24 +31,27 @@ class MainActivity : ComponentActivity() {
+             var isLoggedIn by remember { mutableStateOf(authRepository.isUserLoggedIn()) }
+ 
+             val context = LocalContext.current
+-            val launcher = rememberLauncherForActivityResult(
+-                ActivityResultContracts.RequestMultiplePermissions()
+-            ) { _ -> }
+-
++            val onboardingPreferences = remember {
++                context.getSharedPreferences("onboarding", android.content.Context.MODE_PRIVATE)
++            }
++            var onboardingSeen by remember {
++                mutableStateOf(onboardingPreferences.getBoolean("seen", false))
++            }
+             LaunchedEffect(isLoggedIn) {
+                 if (isLoggedIn) {
+                     // Entramos a la App de inmediato para que no se quede trabado
+                     isAppReady = true 
++                    val pendingExpenses = PendingExpenseStore.getAll(context)
++                    pendingExpenses.forEach(GastoDatabase::guardarGastoLocal)
++                    if (pendingExpenses.isNotEmpty()) {
++                        WorkManagerScheduler.programarSincronizacionInmediata(context)
++                    }
+                     
+                     // La sincronización ocurre en segundo plano
+                     try {
+-                        val profileResult = withTimeoutOrNull(5000) { authRepository.getUserProfile() }
+-                        if (profileResult?.isSuccess == true) {
+-                            authRepository.actualizarRacha()
+-                            val firebaseRepo = GastoRepository()
+-                            val gastosFirebase = firebaseRepo.obtenerGastos()
+-                            GastoDatabase.inicializarGastos(gastosFirebase)
+-                        }
++                        val firebaseRepo = GastoRepository()
++                        val gastosFirebase = firebaseRepo.obtenerGastos()
++                        GastoDatabase.inicializarGastos(gastosFirebase)
+                     } catch (e: Exception) {
+                         Log.e("MainActivity", "Error en sync de fondo: ${e.message}")
+                     }
+@@ -68,11 +66,19 @@ class MainActivity : ComponentActivity() {
+                     LoadingScreen()
+                 } else {
+                     if (isLoggedIn) {
+-                        App(onLogout = {
+-                            authRepository.logout()
+-                            GastoDatabase.limpiarBaseDeDatos()
+-                            isLoggedIn = false
+-                        })
++                        App(
++                            onLogout = {
++                                authRepository.logout()
++                                GastoDatabase.limpiarBaseDeDatos()
++                                PendingExpenseStore.clear(context)
++                                isLoggedIn = false
++                            },
++                            startWithOnboarding = !onboardingSeen,
++                            onOnboardingComplete = {
++                                onboardingPreferences.edit().putBoolean("seen", true).apply()
++                                onboardingSeen = true
++                            }
++                        )
+                     } else {
+                         AuthScreen(onLoginSuccess = {
+                             isLoggedIn = true
+diff --git a/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/NotificationReaderService.kt b/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/NotificationReaderService.kt
+index 4bf29fe..7ffd93b 100644
+--- a/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/NotificationReaderService.kt
++++ b/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/NotificationReaderService.kt
+@@ -1,11 +1,8 @@
+ package com.example.proyectfinanzasinvisibles
+ 
+-import android.app.Notification
+ import android.app.NotificationChannel
+ import android.app.NotificationManager
+-import android.app.PendingIntent
+ import android.content.Context
+-import android.content.Intent
+ import android.os.Build
+ import android.service.notification.NotificationListenerService
+ import android.service.notification.StatusBarNotification
+@@ -13,63 +10,77 @@ import android.util.Log
+ import androidx.core.app.NotificationCompat
+ import com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase
+ import com.example.proyectfinanzasinvisibles.backend.ai.GeminiHelper
++import com.example.proyectfinanzasinvisibles.backend.ai.ExpenseParser
+ import com.example.proyectfinanzasinvisibles.backend.repositories.GastoRepository
++import com.example.proyectfinanzasinvisibles.sync.backend.WorkManagerScheduler
++import com.example.proyectfinanzasinvisibles.sync.backend.PendingExpenseStore
++import com.example.proyectfinanzasinvisibles.backend.repositories.AuthRepository
++import kotlinx.coroutines.SupervisorJob
++import kotlinx.coroutines.cancel
+ import kotlinx.coroutines.CoroutineScope
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.launch
++import kotlinx.coroutines.withContext
+ 
+ class NotificationReaderService : NotificationListenerService() {
+ 
+     private val geminiHelper = GeminiHelper()
+     private val gastoRepository = GastoRepository()
+-    private val serviceScope = CoroutineScope(Dispatchers.IO)
++    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
++    private val processedNotifications = LinkedHashSet<String>()
+     
+     private val CHANNEL_ID = "FinanzasInvisiblesServiceChannel"
+-    private val NOTIFICATION_ID = 1001
+ 
+     override fun onCreate() {
+         super.onCreate()
+         createNotificationChannel()
+-        // Mostrar notificación persistente de que el servicio está activo
+-        startForeground(NOTIFICATION_ID, createPersistentNotification())
+     }
+ 
+     override fun onNotificationPosted(sbn: StatusBarNotification?) {
+         super.onNotificationPosted(sbn)
+ 
+-        val packageName = sbn?.packageName ?: ""
++        val notification = sbn ?: return
++        if (!AuthRepository().isUserLoggedIn()) return
++        val packageName = notification.packageName
+         // EVITAR BUCLE: Si la notificación es de nuestra propia app, ignorarla
+-        if (packageName == "com.example.proyectfinanzasinvisibles") return
++        if (packageName == this.packageName) return
+ 
+-        val extras = sbn?.notification?.extras ?: return
++        val extras = notification.notification.extras
+         val title = extras.getString("android.title") ?: ""
+         val text = extras.getCharSequence("android.text")?.toString() ?: ""
+         val fullText = "$title $text"
+         
+-        // Filtro básico para detectar notificaciones de gastos
+-        if (text.contains("Cargo", ignoreCase = true) || 
+-            text.contains("$") || 
+-            text.contains("compra", ignoreCase = true) ||
+-            text.contains("pago", ignoreCase = true)) {
++        val fingerprint = "${notification.key}:${notification.postTime}"
++        synchronized(processedNotifications) {
++            if (!processedNotifications.add(fingerprint)) return
++            if (processedNotifications.size > 100) {
++                processedNotifications.remove(processedNotifications.first())
++            }
++        }
++
++        if (ExpenseParser.isExpenseNotification(fullText)) {
+             
+-            Log.d("FinanzasInvisibles", "Notificación detectada: $fullText")
++            Log.d("FinanzasInvisibles", "Posible gasto detectado en $packageName")
+ 
+             serviceScope.launch {
+                 try {
+-                    // 1. Clasificación con IA
+-                    val nuevoGasto = geminiHelper.clasificarGasto(fullText)
+-                    
+-                    // 2. Persistencia en la nube (Firestore)
++                    val clasificacion = geminiHelper.clasificarConDetalle(fullText) ?: return@launch
++                    val nuevoGasto = clasificacion.gasto.copy(
++                        id = "notif-${notification.key.hashCode()}-${notification.postTime}"
++                    )
++
++                    // Primero se conserva localmente; la red nunca decide si el gasto se pierde.
++                    withContext(Dispatchers.Main) { GastoDatabase.guardarGastoLocal(nuevoGasto) }
++                    PendingExpenseStore.save(applicationContext, nuevoGasto)
+                     val exitoSync = gastoRepository.sincronizarGasto(nuevoGasto)
+-                    
+                     if (exitoSync) {
+-                        // 3. Guardado local para UI reactiva
+-                        GastoDatabase.guardarGastoLocal(nuevoGasto)
+-                        Log.d("FinanzasInvisibles", "Gasto clasificado y sincronizado: ${nuevoGasto.tipo}")
+-                        
+-                        // Opcional: Mostrar una notificación de que se registró el gasto
+-                        showGastoNotification(nuevoGasto.descripcion, nuevoGasto.monto)
++                        withContext(Dispatchers.Main) { GastoDatabase.marcarSincronizado(nuevoGasto.id) }
++                        PendingExpenseStore.remove(applicationContext, nuevoGasto.id)
++                    } else {
++                        WorkManagerScheduler.programarSincronizacionInmediata(applicationContext)
+                     }
++                    Log.d("FinanzasInvisibles", "Gasto guardado. IA=${clasificacion.usedAi}, nube=$exitoSync")
++                    showGastoNotification(nuevoGasto.descripcion, nuevoGasto.monto, exitoSync)
+                 } catch (e: Exception) {
+                     Log.e("FinanzasInvisibles", "Error procesando notificación", e)
+                 }
+@@ -77,11 +88,16 @@ class NotificationReaderService : NotificationListenerService() {
+         }
+     }
+ 
++    override fun onDestroy() {
++        serviceScope.cancel()
++        super.onDestroy()
++    }
++
+     private fun createNotificationChannel() {
+         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+             val serviceChannel = NotificationChannel(
+                 CHANNEL_ID,
+-                "Servicio de Lector de Gastos IA",
++                "Avisos de gastos detectados",
+                 NotificationManager.IMPORTANCE_LOW
+             )
+             val manager = getSystemService(NotificationManager::class.java)
+@@ -89,28 +105,13 @@ class NotificationReaderService : NotificationListenerService() {
+         }
+     }
+ 
+-    private fun createPersistentNotification(): Notification {
+-        val intent = Intent(this, MainActivity::class.java)
+-        val pendingIntent = PendingIntent.getActivity(
+-            this, 0, intent, 
+-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+-        )
+-
+-        return NotificationCompat.Builder(this, CHANNEL_ID)
+-            .setContentTitle("Finanzas Invisibles")
+-            .setContentText("Lector de gastos activo en segundo plano")
+-            .setSmallIcon(android.R.drawable.ic_menu_compass) // Usar un icono genérico
+-            .setContentIntent(pendingIntent)
+-            .setOngoing(true)
+-            .build()
+-    }
+-    
+-    private fun showGastoNotification(desc: String, monto: Double) {
++    private fun showGastoNotification(desc: String, monto: Double, synced: Boolean) {
+         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+-            .setContentTitle("Gasto Detectado por IA")
+-            .setContentText("$desc: $monto")
+-            .setSmallIcon(android.R.drawable.ic_input_add)
++            .setContentTitle("Gasto pendiente de revisión")
++            .setContentText("$desc: $${"%.2f".format(monto)}${if (synced) "" else " · se sincronizará después"}")
++            .setSmallIcon(R.drawable.ic_launcher_foreground)
++            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+             .setAutoCancel(true)
+             .build()
+         
+diff --git a/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/auth/ui/AuthScreen.kt b/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/auth/ui/AuthScreen.kt
+index c6907ff..f764f6e 100644
+--- a/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/auth/ui/AuthScreen.kt
++++ b/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/auth/ui/AuthScreen.kt
+@@ -39,6 +39,14 @@ import androidx.compose.foundation.verticalScroll
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withTimeout
+ import kotlinx.coroutines.TimeoutCancellationException
++import android.Manifest
++import android.content.pm.PackageManager
++import androidx.activity.compose.rememberLauncherForActivityResult
++import androidx.activity.result.contract.ActivityResultContracts
++import androidx.core.content.ContextCompat
++import androidx.compose.ui.platform.LocalContext
++import com.google.firebase.auth.FirebaseAuthUserCollisionException
++import android.util.Patterns
+ 
+ @Composable
+ fun AuthScreen(onLoginSuccess: () -> Unit) {
+@@ -46,6 +54,7 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
+     val scope = rememberCoroutineScope()
+     val scrollState = rememberScrollState()
+     val focusManager = LocalFocusManager.current
++    val context = LocalContext.current
+     
+     var isLogin by remember { mutableStateOf(true) }
+     var email by remember { mutableStateOf("") }
+@@ -64,15 +73,19 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
+         onError = { errorMsg = it }
+     )
+ 
+-    // Autocomplete city if registering and ciudad is empty
+-    LaunchedEffect(isLogin) {
+-        if (!isLogin && ciudad.isBlank()) {
+-            requestLocation()
+-        }
++    val locationPermissionLauncher = rememberLauncherForActivityResult(
++        ActivityResultContracts.RequestMultiplePermissions()
++    ) { result ->
++        if (result.values.any { it }) requestLocation()
++        else errorMsg = "Puedes escribir tu ciudad manualmente si no deseas compartir la ubicación."
++    }
++    val requestLocationSafely = {
++        val hasPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
++            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
++        if (hasPermission) requestLocation()
++        else locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+     }
+ 
+-    // Use a fixed language for AuthScreen or sync with App level if possible.
+-    // Here we provide Spanish as default for Auth.
+     ProvideStrings(Language.ES) {
+         val s = LocalStrings.current
+         
+@@ -141,7 +154,6 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
+                                 onValueChange = { input ->
+                                     val digits = input.filter { it.isDigit() }
+                                     if (digits.length <= 8) {
+-                                        // Validación básica de entrada (Día 0-3, Mes 0-1)
+                                         val isValidInput = when (digits.length) {
+                                             1 -> digits[0].digitToInt() <= 3
+                                             2 -> digits.toInt() in 1..31
+@@ -168,7 +180,7 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
+                                 onValueChange = { ciudad = it },
+                                 label = s.city,
+                                 trailingIcon = {
+-                                    IconButton(onClick = { requestLocation() }) {
++                                    IconButton(onClick = requestLocationSafely) {
+                                         Icon(
+                                             imageVector = Icons.Default.MyLocation,
+                                             contentDescription = "Get location",
+@@ -212,7 +224,8 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
+                                 value = confirmPassword,
+                                 onValueChange = { confirmPassword = it },
+                                 label = s.confirmPassword,
+-                                visualTransformation = PasswordVisualTransformation()
++                                visualTransformation = PasswordVisualTransformation(),
++                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                             )
+                         }
+ 
+@@ -232,40 +245,39 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
+                                 val trimmedEmail = email.trim()
+                                 val isRegister = !isLogin
+                                 
+-                                // 1. Validación de campos vacíos
+                                 if (trimmedEmail.isBlank() || password.isBlank()) {
+                                     errorMsg = s.fieldsRequired
+                                     return@BounceButton
+                                 }
++                                if (!Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()) {
++                                    errorMsg = "Escribe un correo electrónico válido."
++                                    return@BounceButton
++                                }
+                                 
+                                 if (isRegister) {
+                                     if (nombre.isBlank() || apellido.isBlank() || fechaNacimiento.isBlank() || ciudad.isBlank() || confirmPassword.isBlank()) {
+                                         errorMsg = s.fieldsRequired
+                                         return@BounceButton
+                                     }
++                                    if (password.length < 6) {
++                                        errorMsg = "La contraseña debe tener al menos 6 caracteres."
++                                        return@BounceButton
++                                    }
+ 
+-                                    // 2. Validación lógica de Fecha de Nacimiento (DD/MM/YYYY)
+                                     if (fechaNacimiento.length == 8) {
+                                         val day = fechaNacimiento.substring(0, 2).toIntOrNull() ?: 0
+                                         val month = fechaNacimiento.substring(2, 4).toIntOrNull() ?: 0
+                                         val year = fechaNacimiento.substring(4, 8).toIntOrNull() ?: 0
+                                         
+-                                        val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+-                                        
+-                                        val isDayValid = day in 1..31
+-                                        val isMonthValid = month in 1..12
+-                                        val isYearValid = year in 1900..currentYear
+-                                        
+-                                        if (!isDayValid || !isMonthValid || !isYearValid) {
+-                                            errorMsg = "FECHA INVÁLIDA (Día 1-31, Mes 1-12, Año > 1900)"
++                                        if (!isValidBirthDate(day, month, year)) {
++                                            errorMsg = "La fecha no existe. Usa el formato DD/MM/AAAA."
+                                             return@BounceButton
+                                         }
+                                     } else {
+-                                        errorMsg = "FECHA INCOMPLETA (DDMMYYYY)"
++                                        errorMsg = "Completa la fecha en formato DD/MM/AAAA."
+                                         return@BounceButton
+                                     }
+ 
+-                                    // 3. Confirmación de contraseña
+                                     if (password != confirmPassword) {
+                                         errorMsg = s.passwordsMismatch
+                                         return@BounceButton
+@@ -285,19 +297,17 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
+                                                     errorMsg = result.exceptionOrNull()?.message ?: s.invalidCredentials
+                                                 }
+                                             } else {
+-                                                // Para el Registro (Inicializar):
+-                                                // Llamamos a signUp. Si se crea la cuenta en Firebase Auth,
+-                                                // mandamos al usuario a la App de inmediato.
+                                                 val result = authRepository.signUp(trimmedEmail, password, nombre, apellido, fechaNacimiento, ciudad)
+                                                 
+                                                 if (result.isSuccess) {
+                                                     onLoginSuccess()
+                                                 } else {
+-                                                    val error = result.exceptionOrNull()?.message ?: ""
+-                                                    // Si el error es que el usuario ya existe, intentamos loguear
+-                                                    if (error.contains("already in use", ignoreCase = true)) {
+-                                                        authRepository.login(trimmedEmail, password)
+-                                                        onLoginSuccess()
++                                                    val exception = result.exceptionOrNull()
++                                                    val error = exception?.message ?: ""
++                                                    if (exception is FirebaseAuthUserCollisionException || error.contains("already in use", ignoreCase = true)) {
++                                                        val loginResult = authRepository.login(trimmedEmail, password)
++                                                        if (loginResult.isSuccess) onLoginSuccess()
++                                                        else errorMsg = loginResult.exceptionOrNull()?.message ?: s.invalidCredentials
+                                                     } else {
+                                                         errorMsg = error.ifBlank { s.initializationFailed }
+                                                     }
+@@ -349,6 +359,20 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
+     }
+ }
+ 
++private fun isValidBirthDate(day: Int, month: Int, year: Int): Boolean {
++    val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
++    if (year !in 1900..currentYear) return false
++    return try {
++        java.util.GregorianCalendar(year, month - 1, day).apply {
++            isLenient = false
++            time
++        }
++        true
++    } catch (_: IllegalArgumentException) {
++        false
++    }
++}
++
+ @Composable
+ fun StealthTextField(
+     value: String,
+diff --git a/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/sensores/LocationProvider.kt b/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/sensores/LocationProvider.kt
+index 4741206..fc82090 100644
+--- a/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/sensores/LocationProvider.kt
++++ b/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/sensores/LocationProvider.kt
+@@ -68,11 +68,11 @@ private suspend fun getCityName(context: Context, lat: Double, lon: Double): Str
+         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+             // Blocking version is fine here as we are in Dispatchers.IO
+             val addresses = geocoder.getFromLocation(lat, lon, 1)
+-            addresses?.firstOrNull()?.locality
++            addresses?.firstOrNull()?.let { it.locality ?: it.subAdminArea ?: it.adminArea }
+         } else {
+             @Suppress("DEPRECATION")
+             val addresses = geocoder.getFromLocation(lat, lon, 1)
+-            addresses?.firstOrNull()?.locality
++            addresses?.firstOrNull()?.let { it.locality ?: it.subAdminArea ?: it.adminArea }
+         }
+     } catch (_: Exception) {
+         null
+diff --git a/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/sync/backend/PendingExpenseStore.kt b/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/sync/backend/PendingExpenseStore.kt
+new file mode 100644
+index 0000000..339d34b
+--- /dev/null
++++ b/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/sync/backend/PendingExpenseStore.kt
+@@ -0,0 +1,68 @@
++package com.example.proyectfinanzasinvisibles.sync.backend
++
++import android.content.Context
++import com.example.proyectfinanzasinvisibles.backend.data.Gasto
++import org.json.JSONArray
++import org.json.JSONObject
++
++/** Cola pequeña y privada para conservar gastos pendientes aunque Android cierre el proceso. */
++object PendingExpenseStore {
++    private const val PREFERENCES = "pending_expenses"
++    private const val KEY = "items"
++
++    @Synchronized
++    fun save(context: Context, gasto: Gasto) {
++        val items = getAll(context).associateBy { it.id }.toMutableMap()
++        items[gasto.id] = gasto
++        write(context, items.values.sortedBy { it.fecha }.takeLast(200))
++    }
++
++    @Synchronized
++    fun remove(context: Context, id: String) {
++        write(context, getAll(context).filterNot { it.id == id })
++    }
++
++    @Synchronized
++    fun clear(context: Context) {
++        context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit().clear().apply()
++    }
++
++    @Synchronized
++    fun getAll(context: Context): List<Gasto> {
++        val raw = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).getString(KEY, "[]") ?: "[]"
++        return runCatching {
++            val array = JSONArray(raw)
++            buildList {
++                for (index in 0 until array.length()) {
++                    val item = array.getJSONObject(index)
++                    add(Gasto(
++                        id = item.getString("id"),
++                        descripcion = item.getString("descripcion"),
++                        monto = item.getDouble("monto"),
++                        categoria = item.getString("categoria"),
++                        tipo = item.getString("tipo"),
++                        estado = item.optString("estado", "Pendiente"),
++                        fecha = item.optLong("fecha", 0L),
++                        sincronizado = false
++                    ))
++                }
++            }
++        }.getOrDefault(emptyList())
++    }
++
++    private fun write(context: Context, gastos: List<Gasto>) {
++        val array = JSONArray()
++        gastos.forEach { gasto ->
++            array.put(JSONObject().apply {
++                put("id", gasto.id)
++                put("descripcion", gasto.descripcion)
++                put("monto", gasto.monto)
++                put("categoria", gasto.categoria)
++                put("tipo", gasto.tipo)
++                put("estado", gasto.estado)
++                put("fecha", gasto.fecha)
++            })
++        }
++        context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit().putString(KEY, array.toString()).apply()
++    }
++}
+diff --git a/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/sync/backend/SyncGastosWorker.kt b/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/sync/backend/SyncGastosWorker.kt
+index 0db0a96..7721abe 100644
+--- a/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/sync/backend/SyncGastosWorker.kt
++++ b/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/sync/backend/SyncGastosWorker.kt
+@@ -5,19 +5,35 @@ import android.util.Log
+ import androidx.work.CoroutineWorker
+ import androidx.work.WorkerParameters
+ import com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase
++import com.example.proyectfinanzasinvisibles.backend.repositories.GastoRepository
++import com.example.proyectfinanzasinvisibles.backend.repositories.AuthRepository
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.withContext
+ 
+ class SyncGastosWorker(appContext: Context, workerParams: WorkerParameters):
+     CoroutineWorker(appContext, workerParams) {
+ 
+     override suspend fun doWork(): Result {
++        if (!AuthRepository().isUserLoggedIn()) return Result.success()
+         Log.d("SyncGastosWorker", "Sincronizando gastos con el backend...")
+         
+-        // Simulación de sincronización
+-        val gastos = GastoDatabase.obtenerGastosLocales()
++        val gastos = (PendingExpenseStore.getAll(applicationContext) + GastoDatabase.obtenerPendientesDeSincronizar())
++            .associateBy { it.id }
++            .values
+         Log.d("SyncGastosWorker", "Se encontraron ${gastos.size} gastos para sincronizar.")
+-        
+-        // Aquí iría la lógica de llamada a API
+-        
+-        return Result.success()
++        if (gastos.isEmpty()) return Result.success()
++
++        val repository = GastoRepository()
++        var failed = false
++        gastos.forEach { gasto ->
++            if (repository.sincronizarGasto(gasto)) {
++                withContext(Dispatchers.Main) { GastoDatabase.marcarSincronizado(gasto.id) }
++                PendingExpenseStore.remove(applicationContext, gasto.id)
++            } else {
++                failed = true
++            }
++        }
++
++        return if (failed) Result.retry() else Result.success()
+     }
+ }
+diff --git a/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/sync/backend/WorkManagerScheduler.kt b/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/sync/backend/WorkManagerScheduler.kt
+index d5a3eba..5dcdbe8 100644
+--- a/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/sync/backend/WorkManagerScheduler.kt
++++ b/androidApp/src/main/kotlin/com/example/proyectfinanzasinvisibles/sync/backend/WorkManagerScheduler.kt
+@@ -6,6 +6,20 @@ import java.util.concurrent.TimeUnit
+ 
+ object WorkManagerScheduler {
+     private const val SYNC_WORK_NAME = "SyncGastosWork"
++    private const val IMMEDIATE_SYNC_WORK_NAME = "SyncGastosImmediate"
++
++    fun programarSincronizacionInmediata(context: Context) {
++        val request = OneTimeWorkRequestBuilder<SyncGastosWorker>()
++            .setConstraints(
++                Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
++            )
++            .build()
++        WorkManager.getInstance(context).enqueueUniqueWork(
++            IMMEDIATE_SYNC_WORK_NAME,
++            ExistingWorkPolicy.KEEP,
++            request
++        )
++    }
+ 
+     fun programarSincronizacionPeriodica(context: Context) {
+         val constraints = Constraints.Builder()
+diff --git a/androidApp/src/main/res/values/strings.xml b/androidApp/src/main/res/values/strings.xml
+index a697b6a..3d3aaa2 100644
+--- a/androidApp/src/main/res/values/strings.xml
++++ b/androidApp/src/main/res/values/strings.xml
+@@ -1,3 +1,3 @@
+ <resources>
+-    <string name="app_name">Finanzas</string>
+-</resources>
+\ No newline at end of file
++    <string name="app_name">Finanzas Invisibles</string>
++</resources>
+diff --git a/firebase.json b/firebase.json
+new file mode 100644
+index 0000000..0207c3f
+--- /dev/null
++++ b/firebase.json
+@@ -0,0 +1,5 @@
++{
++  "firestore": {
++    "rules": "firestore.rules"
++  }
++}
+diff --git a/firestore.rules b/firestore.rules
+new file mode 100644
+index 0000000..3e65e03
+--- /dev/null
++++ b/firestore.rules
+@@ -0,0 +1,28 @@
++rules_version = '2';
++service cloud.firestore {
++  match /databases/{database}/documents {
++    function signedIn() {
++      return request.auth != null;
++    }
++
++    match /users/{userId} {
++      allow create, read, update, delete: if signedIn() && request.auth.uid == userId;
++    }
++
++    match /gastos_hormiga/{gastoId} {
++      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
++      allow read, delete: if signedIn() && resource.data.userId == request.auth.uid;
++      allow update: if signedIn()
++        && resource.data.userId == request.auth.uid
++        && request.resource.data.userId == request.auth.uid;
++    }
++
++    match /metas/{metaId} {
++      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
++      allow read, delete: if signedIn() && resource.data.userId == request.auth.uid;
++      allow update: if signedIn()
++        && resource.data.userId == request.auth.uid
++        && request.resource.data.userId == request.auth.uid;
++    }
++  }
++}
+diff --git a/gradlew b/gradlew
+old mode 100644
+new mode 100755
+diff --git a/shared/build.gradle.kts b/shared/build.gradle.kts
+index 3b2d344..42bb5c3 100644
+--- a/shared/build.gradle.kts
++++ b/shared/build.gradle.kts
+@@ -48,11 +48,16 @@ kotlin {
+     sourceSets {
+         androidMain.dependencies {
+             implementation(libs.compose.uiToolingPreview)
++            implementation(libs.androidx.activity.compose)
++            implementation(libs.androidx.core.ktx)
+             implementation("io.ktor:ktor-client-okhttp:3.5.0")
+             implementation(project.dependencies.platform(libs.firebase.bom))
+             implementation(libs.firebase.auth)
+             implementation(libs.firebase.firestore)
+         }
++        iosMain.dependencies {
++            implementation("io.ktor:ktor-client-darwin:3.5.0")
++        }
+         commonMain.dependencies {
+             implementation(libs.compose.runtime)
+             implementation(libs.compose.foundation)
+@@ -72,10 +77,14 @@ kotlin {
+         }
+         jsMain.dependencies {
+             implementation(libs.wrappers.browser)
++            implementation("io.ktor:ktor-client-js:3.5.0")
++        }
++        wasmJsMain.dependencies {
++            implementation("io.ktor:ktor-client-js:3.5.0")
+         }
+     }
+ }
+ 
+ dependencies {
+     androidRuntimeClasspath(libs.compose.uiTooling)
+-}
+\ No newline at end of file
++}
+diff --git a/shared/src/androidMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/AuthRepository.kt b/shared/src/androidMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/AuthRepository.kt
+index b022e31..882ce65 100644
+--- a/shared/src/androidMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/AuthRepository.kt
++++ b/shared/src/androidMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/AuthRepository.kt
+@@ -2,7 +2,9 @@ package com.example.proyectfinanzasinvisibles.backend.repositories
+ 
+ import com.google.firebase.Firebase
+ import com.google.firebase.auth.auth
++import com.google.firebase.auth.EmailAuthProvider
+ import com.google.firebase.firestore.firestore
++import com.google.firebase.firestore.FieldValue
+ import kotlinx.coroutines.tasks.await
+ 
+ actual class AuthRepository {
+@@ -35,7 +37,12 @@ actual class AuthRepository {
+                 "ultimaConexion" to com.google.firebase.Timestamp.now(),
+                 "createdAt" to com.google.firebase.Timestamp.now()
+             )
+-            firestore.collection("users").document(user.uid).set(userData).await()
++            try {
++                firestore.collection("users").document(user.uid).set(userData).await()
++            } catch (e: Exception) {
++                runCatching { user.delete().await() }
++                return Result.failure(e)
++            }
+ 
+             Result.success(Unit)
+         } catch (e: Exception) {
+@@ -47,32 +54,24 @@ actual class AuthRepository {
+         return try {
+             val uid = auth.currentUser?.uid ?: return 0
+             val docRef = firestore.collection("users").document(uid)
+-            val doc = docRef.get().await()
+-            
+-            if (!doc.exists()) return 0
+-
+-            val ultimaConexion = doc.getTimestamp("ultimaConexion")?.toDate()?.time ?: 0L
+-            val rachaActual = (doc.getLong("racha") ?: 0L).toInt()
+-            
+-            val hoy = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+-            val unDiaMs = 24 * 60 * 60 * 1000L
+-            
+-            val diff = hoy - ultimaConexion
+-            
+-            val nuevaRacha = when {
+-                diff < unDiaMs -> rachaActual // Ya se conectó hoy o hace menos de 24h
+-                diff < 2 * unDiaMs -> rachaActual + 1 // Se conectó ayer, racha continúa
+-                else -> 1 // Se perdió la racha, reinicia a 1
+-            }
+-
+-            docRef.update(
+-                mapOf(
+-                    "racha" to nuevaRacha,
++            firestore.runTransaction { transaction ->
++                val doc = transaction.get(docRef)
++                if (!doc.exists()) return@runTransaction 0
++                val lastMillis = doc.getTimestamp("ultimaConexion")?.toDate()?.time ?: 0L
++                val currentStreak = (doc.getLong("racha") ?: 0L).toInt()
++                val today = dayNumber(System.currentTimeMillis())
++                val lastDay = dayNumber(lastMillis)
++                val newStreak = when (today - lastDay) {
++                    0L -> currentStreak.coerceAtLeast(1)
++                    1L -> currentStreak.coerceAtLeast(0) + 1
++                    else -> 1
++                }
++                transaction.update(docRef, mapOf(
++                    "racha" to newStreak,
+                     "ultimaConexion" to com.google.firebase.Timestamp.now()
+-                )
+-            ).await()
+-            
+-            nuevaRacha
++                ))
++                newStreak
++            }.await()
+         } catch (e: Exception) {
+             0
+         }
+@@ -105,11 +104,12 @@ actual class AuthRepository {
+                 user.verifyBeforeUpdateEmail(email).await()
+             }
+ 
+-            val updates = mapOf(
++            val updates = mutableMapOf<String, Any>(
+                 "nombre" to nombre,
+-                "apellido" to apellido,
+-                "email" to email
++                "apellido" to apellido
+             )
++            if (email != user.email) updates["emailPendiente"] = email
++            else updates["email"] = email
+             firestore.collection("users").document(user.uid).update(updates).await()
+             Result.success(Unit)
+         } catch (e: Exception) {
+@@ -117,6 +117,17 @@ actual class AuthRepository {
+         }
+     }
+ 
++    actual suspend fun reauthenticate(currentPassword: String): Result<Unit> {
++        return try {
++            val user = auth.currentUser ?: return Result.failure(Exception("No hay una sesión activa"))
++            val email = user.email ?: return Result.failure(Exception("La cuenta no usa correo electrónico"))
++            user.reauthenticate(EmailAuthProvider.getCredential(email, currentPassword)).await()
++            Result.success(Unit)
++        } catch (e: Exception) {
++            Result.failure(e)
++        }
++    }
++
+     actual suspend fun updatePassword(newPassword: String): Result<Unit> {
+         return try {
+             val user = auth.currentUser ?: return Result.failure(Exception("No user logged in"))
+@@ -129,7 +140,14 @@ actual class AuthRepository {
+ 
+     actual suspend fun login(email: String, password: String): Result<Unit> {
+         return try {
+-            auth.signInWithEmailAndPassword(email, password).await()
++            val user = auth.signInWithEmailAndPassword(email, password).await().user
++            if (user != null) {
++                runCatching {
++                    firestore.collection("users").document(user.uid).update(
++                        mapOf("email" to (user.email ?: email), "emailPendiente" to FieldValue.delete())
++                    ).await()
++                }
++            }
+             Result.success(Unit)
+         } catch (e: Exception) {
+             Result.failure(e)
+@@ -139,4 +157,17 @@ actual class AuthRepository {
+     actual fun logout() {
+         auth.signOut()
+     }
++
++    private fun dayNumber(timestamp: Long): Long {
++        val local = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
++        val normalized = java.util.GregorianCalendar(java.util.TimeZone.getTimeZone("UTC")).apply {
++            clear()
++            set(
++                local.get(java.util.Calendar.YEAR),
++                local.get(java.util.Calendar.MONTH),
++                local.get(java.util.Calendar.DAY_OF_MONTH)
++            )
++        }
++        return normalized.timeInMillis / 86_400_000L
++    }
+ }
+diff --git a/shared/src/androidMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/GastoRepository.kt b/shared/src/androidMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/GastoRepository.kt
+index 4671726..1b995b5 100644
+--- a/shared/src/androidMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/GastoRepository.kt
++++ b/shared/src/androidMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/GastoRepository.kt
+@@ -5,7 +5,9 @@ import com.example.proyectfinanzasinvisibles.backend.data.Gasto
+ import com.google.firebase.Firebase
+ import com.google.firebase.auth.auth
+ import com.google.firebase.firestore.firestore
++import com.google.firebase.firestore.SetOptions
+ import kotlinx.coroutines.tasks.await
++import java.util.Date
+ 
+ actual class GastoRepository {
+     private val firestore = Firebase.firestore
+@@ -21,11 +23,13 @@ actual class GastoRepository {
+                 "tipo" to gasto.tipo,
+                 "estado" to gasto.estado,
+                 "userId" to currentUser.uid,
+-                "timestamp" to com.google.firebase.Timestamp.now()
++                "timestamp" to com.google.firebase.Timestamp(Date(gasto.fecha))
+             )
+-            val docRef = firestore.collection("gastos_hormiga").add(gastoData).await()
+-            // Podríamos actualizar el objeto gasto local con el ID real de Firestore si fuera necesario
+-            true 
++            firestore.collection("gastos_hormiga")
++                .document(gasto.id)
++                .set(gastoData, SetOptions.merge())
++                .await()
++            true
+         } catch (e: Exception) {
+             Log.e("GastoRepository", "Error sincronizando: ${e.message}")
+             false
+@@ -33,12 +37,12 @@ actual class GastoRepository {
+     }
+ 
+     actual suspend fun actualizarEstadoGasto(gastoId: String, nuevoEstado: String): Boolean {
++        val currentUser = auth.currentUser ?: return false
+         return try {
+-            // Buscamos por el ID del documento
+-            firestore.collection("gastos_hormiga")
+-                .document(gastoId)
+-                .update("estado", nuevoEstado)
+-                .await()
++            val document = firestore.collection("gastos_hormiga").document(gastoId)
++            val snapshot = document.get().await()
++            if (snapshot.getString("userId") != currentUser.uid) return false
++            document.update("estado", nuevoEstado).await()
+             true
+         } catch (e: Exception) {
+             Log.e("GastoRepository", "Error actualizando estado: ${e.message}")
+@@ -46,6 +50,28 @@ actual class GastoRepository {
+         }
+     }
+ 
++    actual suspend fun actualizarGasto(gasto: Gasto): Boolean {
++        val currentUser = auth.currentUser ?: return false
++        return try {
++            val document = firestore.collection("gastos_hormiga").document(gasto.id)
++            val snapshot = document.get().await()
++            if (snapshot.getString("userId") != currentUser.uid) return false
++            document.update(
++                mapOf(
++                    "descripcion" to gasto.descripcion,
++                    "monto" to gasto.monto,
++                    "categoria" to gasto.categoria,
++                    "tipo" to gasto.tipo,
++                    "estado" to gasto.estado
++                )
++            ).await()
++            true
++        } catch (e: Exception) {
++            Log.e("GastoRepository", "Error editando gasto: ${e.message}")
++            false
++        }
++    }
++
+     actual suspend fun obtenerGastos(): List<Gasto> {
+         val currentUser = auth.currentUser ?: return emptyList()
+         return try {
+@@ -63,7 +89,8 @@ actual class GastoRepository {
+                     categoria = data["categoria"] as? String ?: "General",
+                     tipo = data["tipo"] as? String ?: "Gasto Normal",
+                     estado = data["estado"] as? String ?: "Pendiente",
+-                    fecha = (data["timestamp"] as? com.google.firebase.Timestamp)?.toDate()?.time ?: 0L
++                    fecha = (data["timestamp"] as? com.google.firebase.Timestamp)?.toDate()?.time ?: 0L,
++                    sincronizado = true
+                 )
+             }
+         } catch (e: Exception) {
+diff --git a/shared/src/androidMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/MetaRepository.kt b/shared/src/androidMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/MetaRepository.kt
+index 8d739fc..944ef33 100644
+--- a/shared/src/androidMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/MetaRepository.kt
++++ b/shared/src/androidMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/MetaRepository.kt
+@@ -48,7 +48,7 @@ actual class MetaRepository {
+                 "mejorRachaDias" to meta.mejorRachaDias,
+                 "mensajeMotivacional" to meta.mensajeMotivacional
+             )
+-            firestore.collection("metas").add(metaData).await()
++            firestore.collection("metas").document(meta.idMeta).set(metaData).await()
+             true
+         } catch (e: Exception) {
+             Log.e("MetaRepository", "Error guardando meta: ${e.message}")
+@@ -57,10 +57,11 @@ actual class MetaRepository {
+     }
+ 
+     actual suspend fun actualizarProgresoMeta(docId: String, nuevoAcumulado: Double): Boolean {
++        val userId = auth.currentUser?.uid ?: return false
+         return try {
+-            firestore.collection("metas").document(docId)
+-                .update("montoAcumulado", nuevoAcumulado)
+-                .await()
++            val document = firestore.collection("metas").document(docId)
++            if (document.get().await().getString("userId") != userId) return false
++            document.update("montoAcumulado", nuevoAcumulado).await()
+             true
+         } catch (e: Exception) {
+             false
+@@ -68,8 +69,11 @@ actual class MetaRepository {
+     }
+ 
+     actual suspend fun eliminarMeta(docId: String): Boolean {
++        val userId = auth.currentUser?.uid ?: return false
+         return try {
+-            firestore.collection("metas").document(docId).delete().await()
++            val document = firestore.collection("metas").document(docId)
++            if (document.get().await().getString("userId") != userId) return false
++            document.delete().await()
+             true
+         } catch (e: Exception) {
+             Log.e("MetaRepository", "Error eliminando meta: ${e.message}")
+@@ -78,12 +82,15 @@ actual class MetaRepository {
+     }
+ 
+     actual suspend fun editarMeta(docId: String, titulo: String, objetivo: Double): Boolean {
++        val userId = auth.currentUser?.uid ?: return false
+         return try {
+             val updates = mapOf(
+                 "titulo" to titulo,
+                 "montoObjetivo" to objetivo
+             )
+-            firestore.collection("metas").document(docId).update(updates).await()
++            val document = firestore.collection("metas").document(docId)
++            if (document.get().await().getString("userId") != userId) return false
++            document.update(updates).await()
+             true
+         } catch (e: Exception) {
+             Log.e("MetaRepository", "Error editando meta: ${e.message}")
+diff --git a/shared/src/androidMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/ConfiguracionScreen.kt b/shared/src/androidMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/ConfiguracionScreen.kt
+index f1bac8d..6db9a8b 100644
+--- a/shared/src/androidMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/ConfiguracionScreen.kt
++++ b/shared/src/androidMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/ConfiguracionScreen.kt
+@@ -16,14 +16,20 @@ import androidx.compose.ui.Alignment
+ import android.Manifest
+ import android.content.pm.PackageManager
+ import androidx.core.content.ContextCompat
+-import android.app.NotificationManager
+-import android.content.ComponentName
+ import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.foundation.background
++import androidx.activity.compose.rememberLauncherForActivityResult
++import androidx.activity.result.contract.ActivityResultContracts
++import androidx.lifecycle.compose.LocalLifecycleOwner
++import androidx.lifecycle.Lifecycle
++import androidx.lifecycle.LifecycleEventObserver
++import android.os.Build
++import androidx.core.app.NotificationManagerCompat
+ 
+ @Composable
+ actual fun ConfiguracionScreen() {
+     val context = LocalContext.current
++    val lifecycleOwner = LocalLifecycleOwner.current
+     val scrollState = rememberScrollState()
+     
+     // Estado del Servicio de Notificaciones
+@@ -34,14 +40,34 @@ actual fun ConfiguracionScreen() {
+     // Estado de Localización
+     var isLocationEnabled by remember {
+         mutableStateOf(
+-            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
++            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
++                ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+         )
+     }
++    var canPostNotifications by remember {
++        mutableStateOf(Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)
++    }
++
++    val locationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
++        isLocationEnabled = result.values.any { it }
++    }
++    val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
++        canPostNotifications = granted
++    }
+ 
+     // Actualizar estados cuando se vuelve a la pantalla
+-    LaunchedEffect(Unit) {
+-        isServiceEnabled = isNotificationServiceEnabled(context)
+-        isLocationEnabled = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
++    DisposableEffect(lifecycleOwner) {
++        val observer = LifecycleEventObserver { _, event ->
++            if (event == Lifecycle.Event.ON_RESUME) {
++                isServiceEnabled = isNotificationServiceEnabled(context)
++                isLocationEnabled = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
++                    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
++                canPostNotifications = Build.VERSION.SDK_INT < 33 ||
++                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
++            }
++        }
++        lifecycleOwner.lifecycle.addObserver(observer)
++        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+     }
+ 
+     Column(
+@@ -58,8 +84,7 @@ actual fun ConfiguracionScreen() {
+         
+         Spacer(modifier = Modifier.height(32.dp))
+ 
+-        // SECCIÓN LECTOR DE NOTIFICACIONES (IA)
+-        SectionHeader("PERMISOS DE IA")
++        SectionHeader("CAPTURA DE GASTOS")
+         Card(
+             modifier = Modifier.fillMaxWidth(),
+             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+@@ -85,7 +110,7 @@ actual fun ConfiguracionScreen() {
+                 Spacer(modifier = Modifier.height(16.dp))
+                 
+                 Text(
+-                    text = "Permite que la IA analice notificaciones bancarias para registrar gastos automáticamente.",
++                    text = "Los posibles cargos se envían al servicio de clasificación. Cada registro queda pendiente para que lo confirmes.",
+                     style = MaterialTheme.typography.labelSmall,
+                     color = MaterialTheme.colorScheme.outline
+                 )
+@@ -94,6 +119,25 @@ actual fun ConfiguracionScreen() {
+ 
+         Spacer(modifier = Modifier.height(24.dp))
+ 
++        SectionHeader("NOTIFICACIONES DE LA APP")
++        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
++            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
++                Text("Avisos de gastos detectados", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
++                Switch(
++                    checked = canPostNotifications,
++                    onCheckedChange = {
++                        if (Build.VERSION.SDK_INT >= 33 && !canPostNotifications) {
++                            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
++                        } else {
++                            openAppSettings(context)
++                        }
++                    }
++                )
++            }
++        }
++
++        Spacer(modifier = Modifier.height(24.dp))
++
+         // SECCIÓN GEOLOCALIZACIÓN
+         SectionHeader("UBICACIÓN")
+         Card(
+@@ -101,7 +145,7 @@ actual fun ConfiguracionScreen() {
+             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+         ) {
+             Column(modifier = Modifier.padding(16.dp)) {
+-                Text(text = "Geolocalización de Gastos", fontWeight = FontWeight.Bold)
++                Text(text = "Ciudad durante el registro", fontWeight = FontWeight.Bold)
+                 Spacer(modifier = Modifier.height(8.dp))
+                 
+                 Row(verticalAlignment = Alignment.CenterVertically) {
+@@ -113,11 +157,9 @@ actual fun ConfiguracionScreen() {
+                     Switch(
+                         checked = isLocationEnabled,
+                         onCheckedChange = { 
+-                            // Abrir ajustes de la app para que el usuario cambie el permiso
+-                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+-                                data = android.net.Uri.fromParts("package", context.packageName, null)
+-                            }
+-                            context.startActivity(intent)
++                            if (!isLocationEnabled) {
++                                locationLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
++                            } else openAppSettings(context)
+                         }
+                     )
+                 }
+@@ -125,7 +167,7 @@ actual fun ConfiguracionScreen() {
+                 Spacer(modifier = Modifier.height(16.dp))
+                 
+                 Text(
+-                    text = "Añade automáticamente la ubicación a tus gastos para un mejor análisis de tus rutas financieras.",
++                    text = "La ubicación se usa únicamente para sugerir tu ciudad durante el registro.",
+                     style = MaterialTheme.typography.labelSmall,
+                     color = MaterialTheme.colorScheme.outline
+                 )
+@@ -181,7 +223,12 @@ fun StatusInfo(isServiceEnabled: Boolean) {
+ }
+ 
+ private fun isNotificationServiceEnabled(context: android.content.Context): Boolean {
+-    // Usamos el nombre de la clase como string para evitar dependencia directa en shared
+-    val flat = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
+-    return flat != null && flat.contains("NotificationReaderService")
++    return NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
++}
++
++private fun openAppSettings(context: android.content.Context) {
++    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
++        data = android.net.Uri.fromParts("package", context.packageName, null)
++    }
++    context.startActivity(intent)
+ }
+diff --git a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/ai/ExpenseParser.kt b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/ai/ExpenseParser.kt
+new file mode 100644
+index 0000000..2b24e56
+--- /dev/null
++++ b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/ai/ExpenseParser.kt
+@@ -0,0 +1,83 @@
++package com.example.proyectfinanzasinvisibles.backend.ai
++
++data class ParsedExpense(
++    val amount: Double,
++    val category: String,
++    val type: String
++)
++
++/** Reglas locales deterministas para filtrar y estructurar notificaciones bancarias. */
++object ExpenseParser {
++    private val incomeWords = listOf(
++        "deposito", "depósito", "recibiste", "recibido", "abono", "reembolso",
++        "devolucion", "devolución", "saldo a favor", "transferencia recibida"
++    )
++    private val expenseWords = listOf(
++        "cargo", "compra", "pago", "retiro", "consumo", "transferencia enviada",
++        "aprobada", "aprobado", "realizaste", "gastaste"
++    )
++
++    fun isExpenseNotification(text: String): Boolean {
++        val normalized = text.lowercase()
++        if (incomeWords.any(normalized::contains)) return false
++        return expenseWords.any(normalized::contains) && extractAmount(text) != null
++    }
++
++    fun parse(text: String, aiHint: String? = null): ParsedExpense? {
++        if (!isExpenseNotification(text)) return null
++        val amount = extractAmount(text)?.takeIf { it > 0.0 } ?: return null
++        val normalized = text.lowercase()
++        val hint = aiHint.orEmpty().lowercase()
++
++        val fixedWords = listOf("renta", "luz", "agua", "internet", "netflix", "spotify", "seguro", "colegiatura")
++        val antWords = listOf("café", "cafe", "starbucks", "oxxo", "papas", "dulces", "refresco", "sabritas", "tiendita", "antojo")
++        val category = when {
++            fixedWords.any(normalized::contains) -> "Fijo"
++            antWords.any(normalized::contains) || (hint.contains("hormiga") && !hint.contains("no es")) -> "Hormiga"
++            else -> "Variable"
++        }
++
++        return ParsedExpense(
++            amount = amount,
++            category = category,
++            type = if (category == "Hormiga") "Gasto Hormiga" else "Gasto Normal"
++        )
++    }
++
++    fun extractAmount(text: String): Double? {
++        val patterns = listOf(
++            Regex("(?:cargo|compra|pago|retiro|consumo)[^\\n]{0,60}?(?:por|de|monto|importe|total)\\s*:?\\s*\\$?\\s*([0-9][0-9.,]*)", RegexOption.IGNORE_CASE),
++            Regex("(?:aprobada|aprobado|gastaste)\\s*:?\\s*\\$?\\s*([0-9][0-9.,]*)", RegexOption.IGNORE_CASE),
++            Regex("(?:MXN\\s*)?\\$\\s*([0-9][0-9.,]*)", RegexOption.IGNORE_CASE),
++            Regex("([0-9][0-9.,]*)\\s*(?:MXN|pesos?)", RegexOption.IGNORE_CASE),
++            Regex("(?:por|monto|importe|total)\\s*[:$]?\\s*([0-9][0-9.,]*)", RegexOption.IGNORE_CASE)
++        )
++        return patterns.firstNotNullOfOrNull { pattern ->
++            pattern.find(text)?.groupValues?.getOrNull(1)?.let(::normalizeAmount)
++        }
++    }
++
++    private fun normalizeAmount(raw: String): Double? {
++        val value = raw.filter { it.isDigit() || it == ',' || it == '.' }
++        if (value.isBlank()) return null
++
++        val lastComma = value.lastIndexOf(',')
++        val lastDot = value.lastIndexOf('.')
++        val decimalSeparator = when {
++            lastComma >= 0 && lastDot >= 0 -> if (lastComma > lastDot) ',' else '.'
++            lastComma >= 0 && value.length - lastComma - 1 in 1..2 -> ','
++            lastDot >= 0 && value.length - lastDot - 1 in 1..2 -> '.'
++            else -> null
++        }
++
++        val normalized = buildString {
++            value.forEachIndexed { index, char ->
++                when {
++                    char.isDigit() -> append(char)
++                    decimalSeparator != null && char == decimalSeparator && index == value.lastIndexOf(decimalSeparator) -> append('.')
++                }
++            }
++        }
++        return normalized.toDoubleOrNull()
++    }
++}
+diff --git a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/ai/GeminiApi.kt b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/ai/GeminiApi.kt
+index 7ca8db7..d84fd4e 100644
+--- a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/ai/GeminiApi.kt
++++ b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/ai/GeminiApi.kt
+@@ -19,25 +19,24 @@ import kotlinx.serialization.json.put
+  * Clase encargada de conectar el frontend con el backend Ktor alojado en Railway.
+  */
+ class GeminiApi {
+-
+-    private val backendUrl =
+-        "https://finanzas-invisibles-api-production.up.railway.app/api/analizar"
+-
+-    private val client = HttpClient {
+-        install(HttpTimeout) {
+-            requestTimeoutMillis = 30000 // Aumentado a 30s por si el backend está "dormido"
+-            connectTimeoutMillis = 30000
+-            socketTimeoutMillis = 30000
++    private companion object {
++        const val BACKEND_URL = "https://finanzas-invisibles-api-production.up.railway.app/api/analizar"
++        val client = HttpClient {
++            install(HttpTimeout) {
++                requestTimeoutMillis = 15_000
++                connectTimeoutMillis = 10_000
++                socketTimeoutMillis = 15_000
++            }
+         }
+     }
+ 
+-    suspend fun analizarTexto(textoBanco: String): String {
++    suspend fun analizarTexto(textoBanco: String): Result<String> {
+         return try {
+             val requestBody = buildJsonObject {
+                 put("textoBanco", textoBanco)
+             }.toString()
+ 
+-            val response = client.post(backendUrl) {
++            val response = client.post(BACKEND_URL) {
+                 contentType(ContentType.Application.Json)
+                 setBody(requestBody)
+             }
+@@ -45,15 +44,15 @@ class GeminiApi {
+             if (response.status.isSuccess()) {
+                 extraerRespuestaBackend(response.bodyAsText())
+             } else {
+-                "Error del servidor: ${response.status.value}"
++                Result.failure(IllegalStateException("El servidor respondió ${response.status.value}"))
+             }
+ 
+         } catch (e: Exception) {
+-            "Error al conectar con el backend: ${e.message}"
++            Result.failure(e)
+         }
+     }
+ 
+-    private fun extraerRespuestaBackend(jsonText: String): String {
++    private fun extraerRespuestaBackend(jsonText: String): Result<String> {
+         return try {
+             val root = Json.parseToJsonElement(jsonText).jsonObject
+ 
+@@ -62,18 +61,14 @@ class GeminiApi {
+             val error = root["error"]?.jsonPrimitive?.contentOrNull
+ 
+             if (ok == "true") {
+-                resultado ?: "El backend respondió correctamente, pero no devolvió resultado."
++                resultado?.takeIf { it.isNotBlank() }?.let { Result.success(it) }
++                    ?: Result.failure(IllegalStateException("El backend no devolvió resultado"))
+             } else {
+-                "Error del backend: ${error ?: "Error desconocido"}"
++                Result.failure(IllegalStateException(error ?: "Error desconocido del backend"))
+             }
+ 
+         } catch (e: Exception) {
+-            "Error al leer la respuesta del backend: ${e.message}"
++            Result.failure(e)
+         }
+     }
+ }
+-
+-suspend fun postCategorizarGasto(textoBanco: String): String {
+-    val api = GeminiApi()
+-    return api.analizarTexto(textoBanco)
+-}
+diff --git a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/ai/GeminiHelper.kt b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/ai/GeminiHelper.kt
+index dceb50c..807706b 100644
+--- a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/ai/GeminiHelper.kt
++++ b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/ai/GeminiHelper.kt
+@@ -3,87 +3,36 @@ package com.example.proyectfinanzasinvisibles.backend.ai
+ import com.example.proyectfinanzasinvisibles.backend.data.Gasto
+ import kotlinx.datetime.Clock
+ 
+-/**
+- * Helper para interactuar con la IA de Gemini para clasificar gastos.
+- */
+-class GeminiHelper {
+-    
+-    private val api = GeminiApi()
+-
+-    /**
+-     * Clasifica un mensaje de texto (notificación) usando el backend de IA si es posible,
+-     * de lo contrario usa una clasificación local como fallback.
+-     */
+-    suspend fun clasificarGasto(mensajeTexto: String): Gasto {
+-        val respuestaIA = try {
+-            api.analizarTexto(mensajeTexto)
+-        } catch (_: Exception) {
+-            "ERROR"
+-        }
+-
+-        val textoLimpio = mensajeTexto.lowercase()
+-        val respuestaLimpia = respuestaIA.lowercase()
+-
+-        // 1. DETECCIÓN DE GASTOS FIJOS (Prioridad Máxima)
+-        val esFijo = textoLimpio.contains("renta") || 
+-                     textoLimpio.contains("luz") || 
+-                     textoLimpio.contains("agua") || 
+-                     textoLimpio.contains("internet") ||
+-                     textoLimpio.contains("netflix") || 
+-                     textoLimpio.contains("spotify") ||
+-                     textoLimpio.contains("seguro") ||
+-                     textoLimpio.contains("colegiatura")
+-
+-        // 2. DETECCIÓN DE GASTOS HORMIGA (Cosas pequeñas e innecesarias)
+-        val esHormiga = (respuestaLimpia.contains("hormiga") && !respuestaLimpia.contains("no es")) || 
+-                        respuestaLimpia.contains("antojo") || 
+-                        textoLimpio.contains("café") || 
+-                        textoLimpio.contains("starbucks") || 
+-                        textoLimpio.contains("oxxo") || 
+-                        textoLimpio.contains("papas") || 
+-                        textoLimpio.contains("dulces") || 
+-                        textoLimpio.contains("coca") ||
+-                        textoLimpio.contains("sabritas") ||
+-                        textoLimpio.contains("tiendita")
+-
+-        // 3. DETECCIÓN DE GASTOS NORMALES/VARIABLES (Supervivencia/Necesidad)
+-        val esVariable = textoLimpio.contains("walmart") || 
+-                         textoLimpio.contains("soriana") || 
+-                         textoLimpio.contains("gasolina") || 
+-                         textoLimpio.contains("farmacia") || 
+-                         textoLimpio.contains("despensa") || 
+-                         textoLimpio.contains("comida") ||
+-                         textoLimpio.contains("uber") ||
+-                         textoLimpio.contains("didi")
+-
+-        // Asignación de Categoría Final
+-        val categoriaFinal = when {
+-            esFijo -> "Fijo"
+-            esHormiga -> "Hormiga"
+-            esVariable -> "Variable"
+-            else -> "Variable" // Por defecto si no estamos seguros
+-        }
+-
+-        val tipoClasificado = if (categoriaFinal == "Hormiga") "Gasto Hormiga" else "Gasto Normal"
+-
+-        // Extraer monto
+-        val montoExtraido = try {
+-            val match = "\\$?(\\d+([.,]\\d+)?)".toRegex().find(mensajeTexto)
+-            match?.groupValues?.get(1)?.replace(",", ".")?.toDouble() ?: 0.0
+-        } catch (_: Exception) {
+-            0.0
+-        }
+-
+-        val now = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+-
+-        return Gasto(
+-            id = "ID-$now",
+-            descripcion = if (respuestaIA != "ERROR" && respuestaIA.length < 100) "$mensajeTexto ($respuestaIA)" else mensajeTexto,
+-            monto = montoExtraido,
+-            categoria = categoriaFinal,
+-            tipo = tipoClasificado,
+-            estado = "Pendiente",
+-            fecha = now
++data class ClassificationResult(
++    val gasto: Gasto,
++    val usedAi: Boolean
++)
++
++/** Combina la sugerencia del backend con reglas locales que siempre validan monto y tipo. */
++class GeminiHelper(private val api: GeminiApi = GeminiApi()) {
++
++    suspend fun clasificarConDetalle(mensajeTexto: String): ClassificationResult? {
++        val localResult = ExpenseParser.parse(mensajeTexto) ?: return null
++        val aiResult = api.analizarTexto(mensajeTexto)
++        val parsed = ExpenseParser.parse(mensajeTexto, aiResult.getOrNull()) ?: localResult
++        val now = Clock.System.now().toEpochMilliseconds()
++
++        return ClassificationResult(
++            gasto = Gasto(
++                id = "gasto-$now",
++                descripcion = mensajeTexto.trim().take(180),
++                monto = parsed.amount,
++                categoria = parsed.category,
++                tipo = parsed.type,
++                estado = "Pendiente",
++                fecha = now,
++                sincronizado = false
++            ),
++            usedAi = aiResult.isSuccess
+         )
+     }
++
++    suspend fun clasificarGasto(mensajeTexto: String): Gasto =
++        clasificarConDetalle(mensajeTexto)?.gasto
++            ?: throw IllegalArgumentException("El texto no contiene un gasto reconocible")
+ }
+diff --git a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/data/Gasto.kt b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/data/Gasto.kt
+index 236cb91..445566f 100644
+--- a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/data/Gasto.kt
++++ b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/data/Gasto.kt
+@@ -7,5 +7,6 @@ data class Gasto(
+     val categoria: String,
+     val tipo: String, // "Gasto Hormiga" o "Gasto Normal"
+     val estado: String = "Pendiente", // "Pendiente", "Aceptado", "Rechazado"
+-    val fecha: Long = 0L
++    val fecha: Long = 0L,
++    val sincronizado: Boolean = false
+ )
+diff --git a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/data/GastoDatabase.kt b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/data/GastoDatabase.kt
+index 3305d45..7e4b493 100644
+--- a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/data/GastoDatabase.kt
++++ b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/data/GastoDatabase.kt
+@@ -7,33 +7,41 @@ object GastoDatabase {
+     val gastos: List<Gasto> get() = _gastos
+ 
+     fun inicializarGastos(nuevosGastos: List<Gasto>) {
++        val merged = nuevosGastos.associateBy { it.id }.toMutableMap()
++        _gastos.filterNot { it.sincronizado }.forEach { merged[it.id] = it }
+         _gastos.clear()
+-        _gastos.addAll(nuevosGastos)
++        _gastos.addAll(merged.values.sortedByDescending { it.fecha })
+     }
+ 
+     fun guardarGastoLocal(gasto: Gasto) {
+-        if (_gastos.none { it.id == gasto.id }) {
++        val index = _gastos.indexOfFirst { it.id == gasto.id }
++        if (index == -1) {
+             _gastos.add(0, gasto)
++        } else {
++            _gastos[index] = gasto
+         }
+     }
+ 
+-    fun aceptarGasto(id: String) {
++    fun cambiarEstado(id: String, nuevoEstado: String) {
+         val index = _gastos.indexOfFirst { it.id == id }
+         if (index != -1) {
+             val gasto = _gastos[index]
+-            _gastos[index] = gasto.copy(estado = "Aceptado")
++            _gastos[index] = gasto.copy(estado = nuevoEstado)
+         }
+     }
+ 
+-    fun obtenerGastosLocales(): List<Gasto> = _gastos.toList()
++    fun actualizarGasto(gasto: Gasto) = guardarGastoLocal(gasto)
+ 
+-    fun eliminarGasto(gasto: Gasto) {
+-        _gastos.remove(gasto)
++    fun marcarSincronizado(id: String) {
++        val index = _gastos.indexOfFirst { it.id == id }
++        if (index != -1) {
++            _gastos[index] = _gastos[index].copy(sincronizado = true)
++        }
+     }
+ 
+-    fun limpiarGastosRechazados() {
+-        _gastos.removeAll { it.estado == "Rechazado" }
+-    }
++    fun obtenerGastosLocales(): List<Gasto> = _gastos.toList()
++
++    fun obtenerPendientesDeSincronizar(): List<Gasto> = _gastos.filterNot { it.sincronizado }
+ 
+     fun limpiarBaseDeDatos() {
+         _gastos.clear()
+diff --git a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/AuthRepository.kt b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/AuthRepository.kt
+index ca6553e..d1a0728 100644
+--- a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/AuthRepository.kt
++++ b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/AuthRepository.kt
+@@ -12,6 +12,7 @@ expect class AuthRepository() {
+         ciudad: String
+     ): Result<Unit>
+     suspend fun updateProfile(nombre: String, apellido: String, email: String): Result<Unit>
++    suspend fun reauthenticate(currentPassword: String): Result<Unit>
+     suspend fun updatePassword(newPassword: String): Result<Unit>
+     suspend fun login(email: String, password: String): Result<Unit>
+     suspend fun actualizarRacha(): Int
+diff --git a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/GastoRepository.kt b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/GastoRepository.kt
+index e9f577c..d12c601 100644
+--- a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/GastoRepository.kt
++++ b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/GastoRepository.kt
+@@ -5,5 +5,6 @@ import com.example.proyectfinanzasinvisibles.backend.data.Gasto
+ expect class GastoRepository() {
+     suspend fun sincronizarGasto(gasto: Gasto): Boolean
+     suspend fun actualizarEstadoGasto(gastoId: String, nuevoEstado: String): Boolean
++    suspend fun actualizarGasto(gasto: Gasto): Boolean
+     suspend fun obtenerGastos(): List<Gasto>
+ }
+diff --git a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/App.kt b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/App.kt
+index 5d3076c..5872112 100644
+--- a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/App.kt
++++ b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/App.kt
+@@ -30,7 +30,11 @@ enum class Screen {
+ @OptIn(ExperimentalMaterial3Api::class)
+ @Composable
+ @Preview
+-fun App(onLogout: () -> Unit = {}) {
++fun App(
++    onLogout: () -> Unit = {},
++    startWithOnboarding: Boolean = false,
++    onOnboardingComplete: () -> Unit = {}
++) {
+     var language by remember { mutableStateOf(Language.ES) }
+     val focusManager = LocalFocusManager.current
+     
+@@ -38,10 +42,15 @@ fun App(onLogout: () -> Unit = {}) {
+         val s = LocalStrings.current
+         
+         StealthMonochromeTheme {
+-            var currentScreen by remember { mutableStateOf(Screen.Home) }
++            var currentScreen by remember(startWithOnboarding) {
++                mutableStateOf(if (startWithOnboarding) Screen.Onboarding else Screen.Home)
++            }
+ 
+             if (currentScreen == Screen.Onboarding) {
+-                OnboardingScreen(onStartClick = { currentScreen = Screen.Home })
++                OnboardingScreen(onStartClick = {
++                    onOnboardingComplete()
++                    currentScreen = Screen.Home
++                })
+             } else {
+                 Surface(
+                     modifier = Modifier
+@@ -118,7 +127,7 @@ fun App(onLogout: () -> Unit = {}) {
+                             .fillMaxSize()
+                     ) {
+                         when (currentScreen) {
+-                            Screen.Home -> DashboardScreen()
++                            Screen.Home -> DashboardScreen(onOpenAlerts = { currentScreen = Screen.Alerts })
+                             Screen.History -> HistoryScreen()
+                             Screen.Alerts -> AlertasScreen()
+                             Screen.Goals -> MetasScreen()
+@@ -140,7 +149,6 @@ fun App(onLogout: () -> Unit = {}) {
+         }
+     }
+ }
+-}
+ 
+ @Composable
+ fun SettingsScreen(
+diff --git a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/Strings.kt b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/Strings.kt
+index 4d9ce6f..e528bf7 100644
+--- a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/Strings.kt
++++ b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/Strings.kt
+@@ -100,15 +100,15 @@ val SpanishStrings = AppStrings(
+     password = "CONTRASEÑA",
+     confirmPassword = "CONFIRMAR CONTRASEÑA",
+     login = "INICIAR SESIÓN",
+-    initialize = "INICIALIZAR",
+-    needAccess = "¿NECESITAS ACCESO? INICIALIZA AQUÍ",
+-    alreadyInitialized = "¿YA INICIALIZADO? INICIA SESIÓN",
+-    fieldsRequired = "CAMPOS REQUERIDOS",
+-    initializationFailed = "FALLO AL INICIALIZAR",
+-    invalidCredentials = "CREDENCIALES INVÁLIDAS",
+-    passwordsMismatch = "LAS CONTRASEÑAS NO COINCIDEN",
+-    silentAssistant = "Asistente Silencioso",
+-    activeNow = "Activo ahora",
++    initialize = "CREAR CUENTA",
++    needAccess = "¿No tienes cuenta? Regístrate",
++    alreadyInitialized = "¿Ya tienes cuenta? Inicia sesión",
++    fieldsRequired = "Completa los campos obligatorios.",
++    initializationFailed = "No fue posible crear la cuenta.",
++    invalidCredentials = "Correo o contraseña incorrectos.",
++    passwordsMismatch = "Las contraseñas no coinciden.",
++    silentAssistant = "Finanzas Invisibles",
++    activeNow = "Resumen de tus movimientos",
+     monthlySummary = "RESUMEN MENSUAL",
+     leaksAvoided = "Has evitado $1,200 en fugas este mes.",
+     systemOptimizing = "El sistema está optimizando tus gastos.",
+@@ -166,8 +166,8 @@ val EnglishStrings = AppStrings(
+     initializationFailed = "INITIALIZATION FAILED",
+     invalidCredentials = "INVALID CREDENTIALS",
+     passwordsMismatch = "PASSWORDS MISMATCH",
+-    silentAssistant = "Silent Assistant",
+-    activeNow = "Active now",
++    silentAssistant = "Invisible Finance",
++    activeNow = "Your transaction summary",
+     monthlySummary = "MONTHLY SUMMARY",
+     leaksAvoided = "You have avoided $1,200 in leaks this month.",
+     systemOptimizing = "The system is optimizing your spending.",
+diff --git a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/AlertasScreen.kt b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/AlertasScreen.kt
+index 11b3837..dbf3ef8 100644
+--- a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/AlertasScreen.kt
++++ b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/AlertasScreen.kt
+@@ -14,24 +14,26 @@ import com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase
+ import com.example.proyectfinanzasinvisibles.frontend.ui.*
+ import androidx.compose.foundation.lazy.LazyColumn
+ import androidx.compose.foundation.shape.RoundedCornerShape
++import kotlinx.datetime.Clock
+ 
+ @Composable
+ fun AlertasScreen() {
+     val s = LocalStrings.current
++    val weekStart = Clock.System.now().toEpochMilliseconds() - 7L * 24L * 60L * 60L * 1000L
+     val gastos = GastoDatabase.obtenerGastosLocales()
+-    val antojosGastos = gastos.filter { it.categoria == "Antojos" || it.categoria == "Café" }
+-    
+-    val backgroundColor = Color(0xFF0F1115)
++        .filter { it.estado == "Aceptado" && it.fecha >= weekStart }
++    val gastosHormiga = gastos.filter { it.categoria == "Hormiga" || it.tipo == "Gasto Hormiga" }
++    val totalSemanal = gastos.sumOf { it.monto }
+ 
+     Column(
+         modifier = Modifier
+             .fillMaxSize()
+-            .background(backgroundColor)
++            .background(MaterialTheme.colorScheme.background)
+             .padding(20.dp)
+     ) {
+         Text(
+             text = s.alerts,
+-            color = Color.White,
++            color = MaterialTheme.colorScheme.onBackground,
+             fontSize = 28.sp,
+             fontWeight = FontWeight.Bold,
+             modifier = Modifier.padding(top = 24.dp)
+@@ -39,30 +41,32 @@ fun AlertasScreen() {
+ 
+         Spacer(modifier = Modifier.height(24.dp))
+ 
+-        if (antojosGastos.isEmpty()) {
++        if (gastosHormiga.isEmpty() && totalSemanal <= 1000.0) {
+             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                 Text(
+                     text = s.noNotifications,
+-                    color = Color.Gray,
++                    color = MaterialTheme.colorScheme.outline,
+                     fontSize = 16.sp,
+                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                 )
+             }
+         } else {
+             LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+-                item {
+-                    AlertCard(
+-                        title = "Alerta de Gasto Hormiga",
+-                        description = "Has realizado ${antojosGastos.size} gastos en antojos recientemente por un total de $${antojosGastos.sumOf { it.monto }.toInt()}.",
+-                        color = Color(0xFFFFA292)
+-                    )
++                if (gastosHormiga.isNotEmpty()) {
++                    item {
++                        AlertCard(
++                            title = "Alerta de gasto hormiga",
++                            description = "Registraste ${gastosHormiga.size} gastos hormiga esta semana por $${gastosHormiga.sumOf { it.monto }.toInt()} MXN.",
++                            color = Color(0xFFFFA292)
++                        )
++                    }
+                 }
+                 
+-                if (gastos.sumOf { it.monto } > 1000) {
++                if (totalSemanal > 1000.0) {
+                     item {
+                         AlertCard(
+                             title = "Presupuesto Semanal",
+-                            description = "Has superado los $1,000 en gastos totales esta semana. Te recomendamos revisar tu historial.",
++                            description = "Tus gastos aceptados de los últimos 7 días suman $${totalSemanal.toInt()} MXN. Revisa el historial antes de seguir gastando.",
+                             color = Color(0xFFFDE68A)
+                         )
+                     }
+diff --git a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/AnalisisScreen.kt b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/AnalisisScreen.kt
+index 9819d2b..52d8db4 100644
+--- a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/AnalisisScreen.kt
++++ b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/AnalisisScreen.kt
+@@ -78,9 +78,16 @@ fun AnalisisScreen(onNavToHistory: () -> Unit = {}) {
+                 scope.launch {
+                     try {
+                         isLoading = true
+-                        resultado = if (s.language == "Language") "Analyzing with IA..." else "Analizando con IA..."
++                        resultado = if (s.language == "Language") "Analyzing expense..." else "Analizando gasto..."
+                         
+-                        val nuevoGasto = geminiHelper.clasificarGasto(inputText)
++                        val classification = geminiHelper.clasificarConDetalle(inputText)
++                        if (classification == null) {
++                            resultado = if (s.language == "Language")
++                                "No expense amount was found, or the message looks like income/refund."
++                                else "No encontré un monto de gasto o el texto parece un ingreso/reembolso."
++                            return@launch
++                        }
++                        val nuevoGasto = classification.gasto
+                         
+                         // Actualizar localmente de inmediato para mejorar la respuesta visual
+                         GastoDatabase.guardarGastoLocal(nuevoGasto)
+@@ -91,9 +98,11 @@ fun AnalisisScreen(onNavToHistory: () -> Unit = {}) {
+                         } ?: false
+                         
+                         if (exito) {
++                            GastoDatabase.marcarSincronizado(nuevoGasto.id)
++                            val method = if (classification.usedAi) "IA + reglas locales" else "reglas locales"
+                             resultado = if (s.language == "Language") 
+-                                "Detected: ${nuevoGasto.tipo}. Redirecting to History..." 
+-                                else "Detectado: ${nuevoGasto.tipo}. Redirigiendo a Historial..."
++                                "Detected: ${nuevoGasto.tipo}. Review it in History."
++                                else "Detectado como ${nuevoGasto.tipo} mediante $method. Revísalo en Historial."
+                             inputText = ""
+                             
+                             // Pequeña pausa para que el usuario lea el resultado antes de navegar
+@@ -101,8 +110,8 @@ fun AnalisisScreen(onNavToHistory: () -> Unit = {}) {
+                             onNavToHistory()
+                         } else {
+                             resultado = if (s.language == "Language")
+-                                "Detected locally: ${nuevoGasto.tipo}. Cloud sync failed (Check backend)."
+-                                else "Detectado localmente: ${nuevoGasto.tipo}. Error al sincronizar (Backend lento o caído)."
++                                "Saved locally as ${nuevoGasto.tipo}; cloud sync is pending."
++                                else "Guardado localmente como ${nuevoGasto.tipo}; la sincronización está pendiente."
+                         }
+                     } catch (e: Exception) {
+                         resultado = "Error: ${e.message}"
+diff --git a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/DashboardScreen.kt b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/DashboardScreen.kt
+index f5aa059..e6e7dde 100644
+--- a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/DashboardScreen.kt
++++ b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/DashboardScreen.kt
+@@ -8,6 +8,8 @@ import androidx.compose.foundation.shape.CircleShape
+ import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material3.*
++import androidx.compose.material.icons.Icons
++import androidx.compose.material.icons.filled.Notifications
+ import androidx.compose.runtime.*
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+@@ -27,9 +29,10 @@ import com.example.proyectfinanzasinvisibles.frontend.ui.*
+ import com.example.proyectfinanzasinvisibles.backend.data.*
+ import com.example.proyectfinanzasinvisibles.backend.repositories.*
+ import kotlinx.coroutines.launch
++import kotlinx.datetime.Clock
+ 
+ @Composable
+-fun DashboardScreen() {
++fun DashboardScreen(onOpenAlerts: () -> Unit = {}) {
+     val s = LocalStrings.current
+     val authRepository = remember { AuthRepository() }
+     val gastoRepository = remember { GastoRepository() }
+@@ -40,26 +43,21 @@ fun DashboardScreen() {
+     var streak by remember { mutableStateOf(0) }
+     
+     LaunchedEffect(Unit) {
+-        val profile = authRepository.getUserProfile()
+-        if (profile.isSuccess) {
+-            streak = (profile.getOrNull()?.get("racha") as? Long)?.toInt() ?: 0
+-        }
+-        // Actualizar gastos locales desde Firebase
+-        val gastosFirebase = gastoRepository.obtenerGastos()
+-        if (gastosFirebase.isNotEmpty()) {
+-            GastoDatabase.inicializarGastos(gastosFirebase)
++        streak = authRepository.actualizarRacha()
++        if (streak == 0) {
++            val profile = authRepository.getUserProfile()
++            streak = (profile.getOrNull()?.get("racha") as? Number)?.toInt() ?: 0
+         }
+     }
+ 
+-    val totalGastado = remember(gastos) { gastos.filter { it.estado == "Aceptado" }.sumOf { it.monto } }
+-    val totalHormiga = remember(gastos) {
+-        gastos.filter { (it.categoria == "Hormiga" || it.tipo == "Gasto Hormiga") && it.estado == "Aceptado" }
++    val weekStart = Clock.System.now().toEpochMilliseconds() - 7L * 24L * 60L * 60L * 1000L
++    val gastosSemanales = gastos.filter { it.estado == "Aceptado" && it.fecha >= weekStart }
++    val totalGastado = gastosSemanales.sumOf { it.monto }
++    val totalHormiga = gastosSemanales
++        .filter { it.categoria == "Hormiga" || it.tipo == "Gasto Hormiga" }
+             .sumOf { it.monto }
+-    }
+ 
+-    val gastoPendiente = remember(gastos) {
+-        gastos.firstOrNull { it.estado == "Pendiente" }
+-    }
++    val gastoPendiente = gastos.firstOrNull { it.estado == "Pendiente" }
+ 
+     Column(
+         modifier = Modifier
+@@ -98,12 +96,13 @@ fun DashboardScreen() {
+                 }
+             }
+ 
+-            Box(
+-                modifier = Modifier
+-                    .size(36.dp)
+-                    .clip(CircleShape)
+-                    .background(MaterialTheme.colorScheme.surfaceVariant)
+-            )
++            IconButton(onClick = onOpenAlerts) {
++                Icon(
++                    Icons.Default.Notifications,
++                    contentDescription = "Abrir alertas",
++                    tint = MaterialTheme.colorScheme.onSurface
++                )
++            }
+         }
+ 
+         Spacer(modifier = Modifier.height(24.dp))
+@@ -154,14 +153,9 @@ fun DashboardScreen() {
+                 gasto = gasto,
+                 onAction = { nuevoEstado ->
+                     scope.launch {
++                        GastoDatabase.actualizarGasto(gasto.copy(estado = nuevoEstado, sincronizado = false))
+                         val exito = gastoRepository.actualizarEstadoGasto(gasto.id, nuevoEstado)
+-                        if (exito) {
+-                            // Actualizar localmente
+-                            val nuevosGastos = GastoDatabase.gastos.map {
+-                                if (it.id == gasto.id) it.copy(estado = nuevoEstado) else it
+-                            }
+-                            GastoDatabase.inicializarGastos(nuevosGastos)
+-                        }
++                        if (exito) GastoDatabase.marcarSincronizado(gasto.id)
+                     }
+                 }
+             )
+@@ -169,7 +163,7 @@ fun DashboardScreen() {
+ 
+         Spacer(modifier = Modifier.height(16.dp))
+ 
+-        DistribucionFugasCard(total = totalGastado, gastos = gastos)
++        DistribucionFugasCard(total = totalGastado, gastos = gastosSemanales)
+ 
+         Spacer(modifier = Modifier.height(24.dp))
+ 
+@@ -181,12 +175,12 @@ fun DashboardScreen() {
+ 
+         Spacer(modifier = Modifier.height(12.dp))
+ 
+-        gastos.take(5).forEach { gasto ->
++        gastos.sortedByDescending { it.fecha }.take(5).forEach { gasto ->
+             RecentItem(
+                 title = gasto.descripcion,
+                 category = gasto.categoria,
+                 amount = "-$${gasto.monto.toInt()}",
+-                time = s.justNow
++                time = relativeTime(gasto.fecha)
+             )
+         }
+ 
+@@ -194,6 +188,16 @@ fun DashboardScreen() {
+     }
+ }
+ 
++private fun relativeTime(timestamp: Long): String {
++    val elapsedMinutes = ((Clock.System.now().toEpochMilliseconds() - timestamp).coerceAtLeast(0L) / 60_000L)
++    return when {
++        elapsedMinutes < 1 -> "Ahora"
++        elapsedMinutes < 60 -> "Hace $elapsedMinutes min"
++        elapsedMinutes < 1_440 -> "Hace ${elapsedMinutes / 60} h"
++        else -> "Hace ${elapsedMinutes / 1_440} días"
++    }
++}
++
+ @Composable
+ fun GastoHormigaCard(monto: Double, porcentaje: Float) {
+     val s = LocalStrings.current
+@@ -330,7 +334,7 @@ fun DeteccionInteligenteCard(gasto: Gasto, onAction: (String) -> Unit) {
+ @Composable
+ fun DistribucionFugasCard(total: Double, gastos: List<Gasto>) {
+     val s = LocalStrings.current
+-    val categorias = gastos.groupBy { it.categoria }
++    val categorias = gastos.filter { it.estado == "Aceptado" }.groupBy { it.categoria }
+     val proportions = if (total > 0) {
+         categorias.map { (it.value.sumOf { g -> g.monto } / total).toFloat() }
+     } else listOf(1f)
+diff --git a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/EditProfileScreen.kt b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/EditProfileScreen.kt
+index 36e3039..7458a1a 100644
+--- a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/EditProfileScreen.kt
++++ b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/EditProfileScreen.kt
+@@ -3,6 +3,7 @@ package com.example.proyectfinanzasinvisibles.frontend.ui.screens
+ import androidx.compose.foundation.layout.*
+ import androidx.compose.foundation.rememberScrollState
+ import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.foundation.text.KeyboardOptions
+ import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material3.*
+ import androidx.compose.runtime.*
+@@ -10,164 +11,148 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.input.KeyboardType
++import androidx.compose.ui.text.input.PasswordVisualTransformation
+ import androidx.compose.ui.unit.dp
+ import com.example.proyectfinanzasinvisibles.backend.repositories.AuthRepository
+ import com.example.proyectfinanzasinvisibles.frontend.ui.components.BounceButton
+-import com.example.proyectfinanzasinvisibles.frontend.ui.*
+ import kotlinx.coroutines.launch
+ 
+ @Composable
+ fun EditProfileScreen(onBack: () -> Unit) {
+-    val authRepository = remember { AuthRepository() }
++    val repository = remember { AuthRepository() }
+     val scope = rememberCoroutineScope()
+-    val scrollState = rememberScrollState()
+-    
+     var nombre by remember { mutableStateOf("") }
+     var apellido by remember { mutableStateOf("") }
+     var email by remember { mutableStateOf("") }
++    var originalEmail by remember { mutableStateOf("") }
+     var fechaNacimiento by remember { mutableStateOf("") }
+-    var password by remember { mutableStateOf("") }
+-    
++    var currentPassword by remember { mutableStateOf("") }
++    var newPassword by remember { mutableStateOf("") }
++    var confirmPassword by remember { mutableStateOf("") }
+     var isLoading by remember { mutableStateOf(true) }
+     var isSaving by remember { mutableStateOf(false) }
+     var message by remember { mutableStateOf<String?>(null) }
+     var isError by remember { mutableStateOf(false) }
+ 
+     LaunchedEffect(Unit) {
+-        val result = authRepository.getUserProfile()
+-        if (result.isSuccess) {
+-            val data = result.getOrNull()
+-            nombre = data?.get("nombre") as? String ?: ""
+-            apellido = data?.get("apellido") as? String ?: ""
+-            email = data?.get("email") as? String ?: ""
+-            fechaNacimiento = data?.get("fechaNacimiento") as? String ?: ""
+-        }
++        repository.getUserProfile()
++            .onSuccess { data ->
++                nombre = data["nombre"] as? String ?: ""
++                apellido = data["apellido"] as? String ?: ""
++                email = data["email"] as? String ?: ""
++                originalEmail = email
++                fechaNacimiento = data["fechaNacimiento"] as? String ?: ""
++            }
++            .onFailure {
++                message = "No fue posible cargar el perfil."
++                isError = true
++            }
+         isLoading = false
+     }
+ 
+-    Box(Modifier.fillMaxSize()) {
+-        if (isLoading) {
+-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+-                CircularProgressIndicator()
+-            }
+-        } else {
+-            Column(
+-                modifier = Modifier
+-                    .fillMaxSize()
+-                    .verticalScroll(scrollState)
+-                    .padding(24.dp),
+-                horizontalAlignment = Alignment.CenterHorizontally
+-            ) {
+-                Text(
+-                    text = "EDITAR PERFIL",
+-                    style = MaterialTheme.typography.headlineMedium,
+-                    color = MaterialTheme.colorScheme.onBackground,
+-                    modifier = Modifier.padding(bottom = 32.dp)
+-                )
+-
+-                OutlinedTextField(
+-                    value = nombre,
+-                    onValueChange = { nombre = it },
+-                    label = { Text("Nombre") },
+-                    modifier = Modifier.fillMaxWidth(),
+-                    shape = RoundedCornerShape(12.dp)
+-                )
+-                
+-                Spacer(modifier = Modifier.height(16.dp))
+-                
+-                OutlinedTextField(
+-                    value = apellido,
+-                    onValueChange = { apellido = it },
+-                    label = { Text("Apellido") },
+-                    modifier = Modifier.fillMaxWidth(),
+-                    shape = RoundedCornerShape(12.dp)
+-                )
+-                
+-                Spacer(modifier = Modifier.height(16.dp))
+-                
+-                OutlinedTextField(
+-                    value = email,
+-                    onValueChange = { email = it },
+-                    label = { Text("Correo Electrónico") },
+-                    modifier = Modifier.fillMaxWidth(),
+-                    shape = RoundedCornerShape(12.dp)
+-                )
+-                
+-                Spacer(modifier = Modifier.height(16.dp))
+-                
+-                OutlinedTextField(
+-                    value = fechaNacimiento,
+-                    onValueChange = { },
+-                    label = { Text("Fecha de Nacimiento (No editable)") },
+-                    modifier = Modifier.fillMaxWidth(),
+-                    enabled = false,
+-                    shape = RoundedCornerShape(12.dp)
+-                )
++    if (isLoading) {
++        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
++        return
++    }
+ 
+-                Spacer(modifier = Modifier.height(24.dp))
+-                HorizontalDivider()
+-                Spacer(modifier = Modifier.height(24.dp))
++    Column(
++        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
++        horizontalAlignment = Alignment.CenterHorizontally
++    ) {
++        Text("EDITAR PERFIL", style = MaterialTheme.typography.headlineMedium,
++            color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.padding(bottom = 32.dp))
+ 
+-                Text("Cambiar Contraseña (Opcional)", style = MaterialTheme.typography.titleMedium)
+-                Spacer(modifier = Modifier.height(8.dp))
++        ProfileField(nombre, { nombre = it }, "Nombre")
++        Spacer(Modifier.height(16.dp))
++        ProfileField(apellido, { apellido = it }, "Apellido")
++        Spacer(Modifier.height(16.dp))
++        ProfileField(email, { email = it }, "Correo electrónico", KeyboardType.Email)
++        Spacer(Modifier.height(16.dp))
++        OutlinedTextField(fechaNacimiento, {}, label = { Text("Fecha de nacimiento") },
++            modifier = Modifier.fillMaxWidth(), enabled = false, shape = RoundedCornerShape(12.dp))
+ 
+-                OutlinedTextField(
+-                    value = password,
+-                    onValueChange = { password = it },
+-                    label = { Text("Nueva Contraseña") },
+-                    modifier = Modifier.fillMaxWidth(),
+-                    shape = RoundedCornerShape(12.dp)
+-                )
++        Spacer(Modifier.height(24.dp)); HorizontalDivider(); Spacer(Modifier.height(24.dp))
++        Text("Seguridad", style = MaterialTheme.typography.titleMedium, modifier = Modifier.align(Alignment.Start))
++        Text("Para cambiar correo o contraseña, confirma primero tu contraseña actual.",
++            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline,
++            modifier = Modifier.align(Alignment.Start).padding(top = 4.dp, bottom = 12.dp))
+ 
+-                Spacer(modifier = Modifier.height(32.dp))
++        PasswordField(currentPassword, { currentPassword = it }, "Contraseña actual")
++        Spacer(Modifier.height(12.dp))
++        PasswordField(newPassword, { newPassword = it }, "Nueva contraseña (opcional)")
++        Spacer(Modifier.height(12.dp))
++        PasswordField(confirmPassword, { confirmPassword = it }, "Confirmar nueva contraseña")
+ 
+-                message?.let {
+-                    Text(
+-                        text = it,
+-                        color = if (isError) MaterialTheme.colorScheme.error else Color(0xFF4CAF50),
+-                        modifier = Modifier.padding(bottom = 16.dp)
+-                    )
+-                }
++        message?.let {
++            Spacer(Modifier.height(16.dp))
++            Text(it, color = if (isError) MaterialTheme.colorScheme.error else Color(0xFF66BB6A))
++        }
++        Spacer(Modifier.height(24.dp))
+ 
+-                BounceButton(
+-                    onClick = {
+-                        scope.launch {
+-                            isSaving = true
+-                            message = null
+-                            
+-                            val profileResult = authRepository.updateProfile(nombre, apellido, email)
+-                            if (profileResult.isSuccess) {
+-                                if (password.isNotEmpty()) {
+-                                    val passResult = authRepository.updatePassword(password)
+-                                    if (passResult.isFailure) {
+-                                        message = "Perfil actualizado, pero error al cambiar contraseña"
+-                                        isError = true
+-                                    } else {
+-                                        message = "Perfil y contraseña actualizados correctamente"
+-                                        isError = false
+-                                    }
+-                                } else {
+-                                    message = "Perfil actualizado correctamente"
+-                                    isError = false
+-                                }
+-                            } else {
+-                                message = "Error al actualizar perfil: ${profileResult.exceptionOrNull()?.message}"
+-                                isError = true
+-                            }
+-                            isSaving = false
++        BounceButton(
++            onClick = {
++                val emailChanged = email.trim() != originalEmail
++                val passwordChanged = newPassword.isNotBlank()
++                when {
++                    nombre.isBlank() || apellido.isBlank() || email.isBlank() -> {
++                        message = "Completa nombre, apellido y correo."; isError = true
++                    }
++                    passwordChanged && newPassword.length < 6 -> {
++                        message = "La nueva contraseña debe tener al menos 6 caracteres."; isError = true
++                    }
++                    passwordChanged && newPassword != confirmPassword -> {
++                        message = "Las contraseñas nuevas no coinciden."; isError = true
++                    }
++                    (emailChanged || passwordChanged) && currentPassword.isBlank() -> {
++                        message = "Escribe tu contraseña actual para confirmar el cambio."; isError = true
++                    }
++                    else -> scope.launch {
++                        isSaving = true; message = null
++                        val reauth = if (emailChanged || passwordChanged) repository.reauthenticate(currentPassword)
++                            else Result.success(Unit)
++                        if (reauth.isFailure) {
++                            message = "La contraseña actual no es correcta."; isError = true; isSaving = false
++                            return@launch
++                        }
++                        val profile = repository.updateProfile(nombre.trim(), apellido.trim(), email.trim())
++                        val password = if (profile.isSuccess && passwordChanged) repository.updatePassword(newPassword)
++                            else Result.success(Unit)
++                        isError = profile.isFailure || password.isFailure
++                        message = when {
++                            profile.isFailure -> "No fue posible actualizar el perfil: ${profile.exceptionOrNull()?.message.orEmpty()}"
++                            password.isFailure -> "El perfil se actualizó, pero la contraseña no pudo cambiarse."
++                            emailChanged -> "Perfil actualizado. Revisa el correo nuevo y abre el enlace de verificación."
++                            else -> "Perfil actualizado correctamente."
++                        }
++                        if (!isError) {
++                            currentPassword = ""; newPassword = ""; confirmPassword = ""
+                         }
+-                    },
+-                    modifier = Modifier.fillMaxWidth().height(50.dp),
+-                    enabled = !isSaving
+-                ) {
+-                    if (isSaving) {
+-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
+-                    } else {
+-                        Text("Guardar Cambios", fontWeight = FontWeight.Bold)
++                        isSaving = false
+                     }
+                 }
+-                Spacer(modifier = Modifier.height(40.dp))
+-            }
++            },
++            modifier = Modifier.fillMaxWidth().height(52.dp),
++            enabled = !isSaving
++        ) {
++            if (isSaving) CircularProgressIndicator(Modifier.size(24.dp), color = Color.White)
++            else Text("Guardar cambios", fontWeight = FontWeight.Bold)
+         }
++        TextButton(onClick = onBack, modifier = Modifier.padding(top = 8.dp)) { Text("Volver") }
++        Spacer(Modifier.height(32.dp))
+     }
+ }
++
++@Composable
++private fun ProfileField(value: String, onValueChange: (String) -> Unit, label: String,
++                         keyboardType: KeyboardType = KeyboardType.Text) {
++    OutlinedTextField(value, onValueChange, label = { Text(label) }, modifier = Modifier.fillMaxWidth(),
++        singleLine = true, shape = RoundedCornerShape(12.dp), keyboardOptions = KeyboardOptions(keyboardType = keyboardType))
++}
++
++@Composable
++private fun PasswordField(value: String, onValueChange: (String) -> Unit, label: String) {
++    OutlinedTextField(value, onValueChange, label = { Text(label) }, modifier = Modifier.fillMaxWidth(),
++        singleLine = true, shape = RoundedCornerShape(12.dp), visualTransformation = PasswordVisualTransformation(),
++        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
++}
+diff --git a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/HistoryScreen.kt b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/HistoryScreen.kt
+index 9f06ce6..2df5c30 100644
+--- a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/HistoryScreen.kt
++++ b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/HistoryScreen.kt
+@@ -5,166 +5,175 @@ import androidx.compose.foundation.layout.*
+ import androidx.compose.foundation.lazy.LazyColumn
+ import androidx.compose.foundation.lazy.items
+ import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.foundation.text.KeyboardOptions
+ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.filled.Check
+ import androidx.compose.material.icons.filled.Close
++import androidx.compose.material.icons.filled.Edit
+ import androidx.compose.material3.*
+ import androidx.compose.runtime.*
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.input.KeyboardType
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+-import com.example.proyectfinanzasinvisibles.backend.data.*
++import com.example.proyectfinanzasinvisibles.backend.data.Gasto
++import com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase
+ import com.example.proyectfinanzasinvisibles.backend.repositories.GastoRepository
+-import com.example.proyectfinanzasinvisibles.frontend.ui.*
++import com.example.proyectfinanzasinvisibles.frontend.ui.LocalStrings
+ import kotlinx.coroutines.launch
++import kotlin.math.round
+ 
+ @Composable
+ fun HistoryScreen() {
+     val s = LocalStrings.current
+     val scope = rememberCoroutineScope()
+-    val gastoRepository = remember { GastoRepository() }
+-    
+-    val todosLosGastos = GastoDatabase.gastos
+-    val gastosPendientes = todosLosGastos.filter { it.estado == "Pendiente" }
+-    
+-    Column(
+-        modifier = Modifier
+-            .fillMaxSize()
+-            .background(MaterialTheme.colorScheme.background)
+-            .padding(16.dp)
+-    ) {
+-        Text(
+-            text = s.history, 
+-            style = MaterialTheme.typography.headlineLarge,
+-            color = MaterialTheme.colorScheme.onBackground
+-        )
+-
+-        Spacer(modifier = Modifier.height(24.dp))
++    val repository = remember { GastoRepository() }
++    val pendientes = GastoDatabase.gastos
++        .filter { it.estado == "Pendiente" }
++        .sortedByDescending { it.fecha }
++    var gastoParaEditar by remember { mutableStateOf<Gasto?>(null) }
++    var message by remember { mutableStateOf<String?>(null) }
+ 
+-        Text(
+-            text = "GASTOS POR APROBAR", 
+-            style = MaterialTheme.typography.labelSmall,
+-            color = MaterialTheme.colorScheme.outline
+-        )
++    fun updateStatus(gasto: Gasto, status: String) {
++        GastoDatabase.actualizarGasto(gasto.copy(estado = status, sincronizado = false))
++        scope.launch {
++            val success = repository.actualizarEstadoGasto(gasto.id, status)
++            if (success) GastoDatabase.marcarSincronizado(gasto.id)
++            else message = "El cambio quedó guardado en el dispositivo y se sincronizará cuando haya conexión."
++        }
++    }
+ 
+-        Spacer(modifier = Modifier.height(16.dp))
++    Column(
++        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)
++    ) {
++        Text(s.history, style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.onBackground)
++        Spacer(Modifier.height(24.dp))
++        Text("GASTOS POR REVISAR", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
++        message?.let {
++            Spacer(Modifier.height(12.dp))
++            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
++        }
++        Spacer(Modifier.height(16.dp))
+ 
+-        LazyColumn(
+-            modifier = Modifier.fillMaxSize(),
+-            verticalArrangement = Arrangement.spacedBy(12.dp)
+-        ) {
+-            items(gastosPendientes) { gasto ->
++        LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
++            items(pendientes, key = { it.id }) { gasto ->
+                 PendingExpenseCard(
+                     gasto = gasto,
+-                    onAceptar = {
+-                        scope.launch {
+-                            GastoDatabase.aceptarGasto(gasto.id)
+-                            gastoRepository.actualizarEstadoGasto(gasto.id, "Aceptado")
+-                        }
+-                    },
+-                    onRechazar = {
+-                        scope.launch {
+-                            // Lo marcamos como Rechazado para que sume al ahorro potencial en Metas
+-                            val exito = gastoRepository.actualizarEstadoGasto(gasto.id, "Rechazado")
+-                            if (exito) {
+-                                val nuevosGastos = GastoDatabase.gastos.map {
+-                                    if (it.id == gasto.id) it.copy(estado = "Rechazado") else it
+-                                }
+-                                GastoDatabase.inicializarGastos(nuevosGastos)
+-                            }
+-                        }
+-                    }
++                    onAceptar = { updateStatus(gasto, "Aceptado") },
++                    onRechazar = { updateStatus(gasto, "Rechazado") },
++                    onEditar = { gastoParaEditar = gasto }
+                 )
+             }
+-
+-            if (gastosPendientes.isEmpty()) {
++            if (pendientes.isEmpty()) {
+                 item {
+-                    Box(modifier = Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
++                    Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
+                         Text("No tienes gastos pendientes", color = MaterialTheme.colorScheme.outline)
+                     }
+                 }
+             }
+         }
+     }
++
++    gastoParaEditar?.let { gasto ->
++        EditExpenseDialog(
++            gasto = gasto,
++            onDismiss = { gastoParaEditar = null },
++            onConfirm = { edited ->
++                GastoDatabase.actualizarGasto(edited.copy(sincronizado = false))
++                gastoParaEditar = null
++                scope.launch {
++                    val success = repository.actualizarGasto(edited)
++                    if (success) GastoDatabase.marcarSincronizado(edited.id)
++                    else message = "La edición quedó guardada localmente; falta sincronizarla."
++                }
++            }
++        )
++    }
+ }
+ 
+ @Composable
+ fun PendingExpenseCard(
+     gasto: Gasto,
+     onAceptar: () -> Unit,
+-    onRechazar: () -> Unit
++    onRechazar: () -> Unit,
++    onEditar: () -> Unit
+ ) {
+     val isHormiga = gasto.tipo == "Gasto Hormiga"
+-    val badgeColor = if (isHormiga) Color(0xFFFF5722) else Color(0xFF2196F3)
+-
++    val badgeColor = if (isHormiga) Color(0xFFFF8A65) else Color(0xFF64B5F6)
+     Card(
+         modifier = Modifier.fillMaxWidth(),
+         shape = RoundedCornerShape(12.dp),
+         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+     ) {
+-        Column(modifier = Modifier.padding(16.dp)) {
+-            Row(
+-                modifier = Modifier.fillMaxWidth(),
+-                horizontalArrangement = Arrangement.SpaceBetween,
+-                verticalAlignment = Alignment.Top
+-            ) {
+-                Column(modifier = Modifier.weight(1f)) {
+-                    Surface(
+-                        color = badgeColor.copy(alpha = 0.1f),
+-                        shape = RoundedCornerShape(4.dp)
+-                    ) {
+-                        Text(
+-                            text = gasto.tipo.uppercase(),
+-                            color = badgeColor,
+-                            fontSize = 10.sp,
+-                            fontWeight = FontWeight.Bold,
+-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+-                        )
++        Column(Modifier.padding(16.dp)) {
++            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
++                Column(Modifier.weight(1f)) {
++                    Surface(color = badgeColor.copy(alpha = 0.14f), shape = RoundedCornerShape(4.dp)) {
++                        Text(gasto.tipo.uppercase(), color = badgeColor, fontSize = 10.sp, fontWeight = FontWeight.Bold,
++                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                     }
+-                    Spacer(modifier = Modifier.height(8.dp))
+-                    Text(
+-                        text = gasto.descripcion,
+-                        style = MaterialTheme.typography.bodyLarge,
+-                        fontWeight = FontWeight.Bold,
+-                        color = MaterialTheme.colorScheme.onSurface
+-                    )
++                    Spacer(Modifier.height(8.dp))
++                    Text(gasto.descripcion, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
++                    Text(gasto.categoria, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                 }
+-                Text(
+-                    text = "$${gasto.monto}",
+-                    style = MaterialTheme.typography.headlineSmall,
+-                    fontWeight = FontWeight.Black,
+-                    color = MaterialTheme.colorScheme.primary
+-                )
++                Text("$${gasto.monto.toMoney()}", style = MaterialTheme.typography.headlineSmall,
++                    fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+             }
+-
+-            Spacer(modifier = Modifier.height(20.dp))
+-
+-            Row(
+-                modifier = Modifier.fillMaxWidth(),
+-                horizontalArrangement = Arrangement.End
+-            ) {
+-                TextButton(
+-                    onClick = onRechazar,
+-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+-                ) {
+-                    Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
+-                    Spacer(modifier = Modifier.width(4.dp))
+-                    Text("RECHAZAR / EDITAR")
++            Spacer(Modifier.height(16.dp))
++            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
++                TextButton(onClick = onEditar) {
++                    Icon(Icons.Default.Edit, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("EDITAR")
++                }
++                TextButton(onClick = onRechazar, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
++                    Icon(Icons.Default.Close, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("DESCARTAR")
+                 }
+-                Spacer(modifier = Modifier.width(8.dp))
+-                Button(
+-                    onClick = onAceptar,
+-                    shape = RoundedCornerShape(8.dp),
+-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+-                ) {
+-                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+-                    Spacer(modifier = Modifier.width(4.dp))
+-                    Text("ACEPTAR")
++                Spacer(Modifier.width(4.dp))
++                Button(onClick = onAceptar, shape = RoundedCornerShape(8.dp)) {
++                    Icon(Icons.Default.Check, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("ACEPTAR")
+                 }
+             }
+         }
+     }
+ }
++
++private fun Double.toMoney(): String = (round(this * 100.0) / 100.0).toString()
++
++@Composable
++private fun EditExpenseDialog(gasto: Gasto, onDismiss: () -> Unit, onConfirm: (Gasto) -> Unit) {
++    var description by remember { mutableStateOf(gasto.descripcion) }
++    var amount by remember { mutableStateOf(gasto.monto.toString()) }
++    var category by remember { mutableStateOf(gasto.categoria) }
++    val validAmount = amount.replace(',', '.').toDoubleOrNull()
++
++    AlertDialog(
++        onDismissRequest = onDismiss,
++        title = { Text("Corregir gasto") },
++        text = {
++            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
++                OutlinedTextField(description, { description = it }, label = { Text("Descripción") }, singleLine = true)
++                OutlinedTextField(amount, { amount = it }, label = { Text("Monto") }, singleLine = true,
++                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
++                OutlinedTextField(category, { category = it }, label = { Text("Categoría") }, singleLine = true,
++                    supportingText = { Text("Usa Fijo, Hormiga o Variable") })
++            }
++        },
++        confirmButton = {
++            Button(
++                enabled = description.isNotBlank() && category.isNotBlank() && validAmount != null && validAmount > 0,
++                onClick = {
++                    val cleanCategory = category.trim().replaceFirstChar { it.uppercase() }
++                    onConfirm(gasto.copy(
++                        descripcion = description.trim(),
++                        monto = validAmount ?: gasto.monto,
++                        categoria = cleanCategory,
++                        tipo = if (cleanCategory.equals("Hormiga", true)) "Gasto Hormiga" else "Gasto Normal"
++                    ))
++                }
++            ) { Text("Guardar") }
++        },
++        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
++    )
++}
+diff --git a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/MetasScreen.kt b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/MetasScreen.kt
+index b84449d..048071e 100644
+--- a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/MetasScreen.kt
++++ b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/MetasScreen.kt
+@@ -20,25 +20,23 @@ import androidx.compose.ui.unit.sp
+ import com.example.proyectfinanzasinvisibles.backend.data.*
+ import com.example.proyectfinanzasinvisibles.frontend.ui.components.BounceButton
+ import com.example.proyectfinanzasinvisibles.frontend.ui.*
++import androidx.lifecycle.viewmodel.compose.viewModel
++import kotlinx.datetime.Clock
+ 
+ @Composable
+ fun MetasScreen() {
+     val s = LocalStrings.current
+-    val viewModel = remember { MetasViewModel() }
++    val viewModel: MetasViewModel = viewModel()
+     
+     // Observamos los gastos de forma reactiva
+     val gastos = GastoDatabase.gastos
+     
+-    // Forzar recarga al entrar a la pantalla
+-    LaunchedEffect(Unit) {
+-        viewModel.cargarMetas()
+-    }
+-
+     val metas = viewModel.metas
+     val isLoading = viewModel.isLoading
+ 
++    val weekStart = Clock.System.now().toEpochMilliseconds() - 7L * 24L * 60L * 60L * 1000L
+     val totalHormigaMes = remember(gastos.size, gastos.map { it.estado }) {
+-        gastos.filter { (it.categoria == "Hormiga" || it.tipo == "Gasto Hormiga") && it.estado == "Aceptado" }
++        gastos.filter { (it.categoria == "Hormiga" || it.tipo == "Gasto Hormiga") && it.estado == "Aceptado" && it.fecha >= weekStart }
+             .sumOf { it.monto }
+     }
+ 
+@@ -46,11 +44,6 @@ fun MetasScreen() {
+     var metaParaEditar by remember { mutableStateOf<MetaAhorro?>(null) }
+     var showApplySavingsDialog by remember { mutableStateOf(false) }
+ 
+-    // Consideramos "Ahorro Potencial" los gastos que el usuario RECHAZÓ (decidió no gastar)
+-    val ahorroPotencial = remember(gastos.size, gastos.map { it.estado }) {
+-        gastos.filter { it.estado == "Rechazado" }.sumOf { it.monto }
+-    }
+-
+     Column(
+         modifier = Modifier
+             .fillMaxSize()
+@@ -84,8 +77,7 @@ fun MetasScreen() {
+             }
+         }
+ 
+-        // NUEVA: Tarjeta de Ahorro Potencial (Lo que evitaste gastar)
+-        if (ahorroPotencial > 0) {
++        if (metas.isNotEmpty()) {
+             Card(
+                 modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                 shape = RoundedCornerShape(8.dp),
+@@ -98,16 +90,11 @@ fun MetasScreen() {
+                 ) {
+                     Column(modifier = Modifier.weight(1f)) {
+                         Text(
+-                            text = "AHORRO POR GASTOS EVITADOS",
++                            text = "REGISTRO DE AHORRO",
+                             style = MaterialTheme.typography.labelSmall,
+                             color = MaterialTheme.colorScheme.primary
+                         )
+-                        Text(
+-                            text = "$${ahorroPotencial.toInt()}",
+-                            style = MaterialTheme.typography.headlineMedium,
+-                            color = MaterialTheme.colorScheme.onSurface,
+-                            fontWeight = FontWeight.Bold
+-                        )
++                        Text("Agrega solo dinero que realmente apartaste.", style = MaterialTheme.typography.bodySmall)
+                     }
+                     
+                     Button(
+@@ -115,7 +102,7 @@ fun MetasScreen() {
+                         shape = RoundedCornerShape(8.dp),
+                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                     ) {
+-                        Text("APLICAR", style = MaterialTheme.typography.labelSmall)
++                        Text("REGISTRAR", style = MaterialTheme.typography.labelSmall)
+                     }
+                 }
+             }
+@@ -128,6 +115,11 @@ fun MetasScreen() {
+             modifier = Modifier.padding(bottom = 12.dp)
+         )
+ 
++        viewModel.errorMessage?.let {
++            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
++                modifier = Modifier.padding(bottom = 12.dp))
++        }
++
+         if (isLoading) {
+             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+@@ -189,11 +181,10 @@ fun MetasScreen() {
+ 
+     if (showApplySavingsDialog) {
+         ApplySavingsDialog(
+-            monto = ahorroPotencial,
+             metas = metas,
+             onDismiss = { showApplySavingsDialog = false },
+-            onConfirm = { idMeta ->
+-                viewModel.sumarAhorroAMeta(idMeta, ahorroPotencial)
++            onConfirm = { idMeta, monto ->
++                viewModel.sumarAhorroAMeta(idMeta, monto)
+                 showApplySavingsDialog = false
+             }
+         )
+@@ -202,36 +193,51 @@ fun MetasScreen() {
+ 
+ @Composable
+ fun ApplySavingsDialog(
+-    monto: Double,
+     metas: List<MetaAhorro>,
+     onDismiss: () -> Unit,
+-    onConfirm: (String) -> Unit
++    onConfirm: (String, Double) -> Unit
+ ) {
++    var selectedId by remember { mutableStateOf(metas.firstOrNull()?.idMeta.orEmpty()) }
++    var amount by remember { mutableStateOf("") }
++    val parsedAmount = amount.replace(',', '.').toDoubleOrNull()
+     AlertDialog(
+         onDismissRequest = onDismiss,
+-        title = { Text("Aplicar Ahorro a Meta") },
++        title = { Text("Registrar ahorro") },
+         text = {
+             Column {
+-                Text("Tienes $${monto.toInt()} ahorrados al evitar gastos innecesarios. ¿A qué meta quieres aplicarlos?")
++                Text("Elige una meta e indica cuánto dinero apartaste realmente.")
++                Spacer(modifier = Modifier.height(12.dp))
++                OutlinedTextField(
++                    value = amount,
++                    onValueChange = { amount = it },
++                    label = { Text("Monto ahorrado") },
++                    singleLine = true,
++                    modifier = Modifier.fillMaxWidth()
++                )
+                 Spacer(modifier = Modifier.height(16.dp))
+                 LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                     items(metas) { meta ->
+                         TextButton(
+-                            onClick = { onConfirm(meta.idMeta) },
++                            onClick = { selectedId = meta.idMeta },
+                             modifier = Modifier.fillMaxWidth()
+                         ) {
+                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                 Text(meta.titulo, color = MaterialTheme.colorScheme.onSurface)
+-                                Text("${( (meta.montoAcumulado/meta.montoObjetivo)*100 ).toInt()}%", color = MaterialTheme.colorScheme.primary)
++                                RadioButton(selected = selectedId == meta.idMeta, onClick = { selectedId = meta.idMeta })
+                             }
+                         }
+                     }
+                 }
+             }
+         },
+-        confirmButton = {},
++        confirmButton = {
++            Button(
++                enabled = selectedId.isNotBlank() && parsedAmount != null && parsedAmount > 0.0,
++                onClick = { onConfirm(selectedId, parsedAmount ?: 0.0) }
++            ) { Text("Guardar") }
++        },
+         dismissButton = {
+-            TextButton(onClick = onDismiss) { Text("Cerrar") }
++            TextButton(onClick = onDismiss) { Text("Cancelar") }
+         }
+     )
+ }
+@@ -324,7 +330,7 @@ fun MetaCard(
+             Spacer(modifier = Modifier.height(16.dp))
+             
+             Text(
+-                text = "💡 ${meta.mensajeMotivacional}",
++                text = "Sugerencia: ${meta.mensajeMotivacional}",
+                 style = MaterialTheme.typography.bodySmall,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+diff --git a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/MetasViewModel.kt b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/MetasViewModel.kt
+index 70a04ca..abc54a7 100644
+--- a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/MetasViewModel.kt
++++ b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/screens/MetasViewModel.kt
+@@ -1,113 +1,92 @@
+ package com.example.proyectfinanzasinvisibles.frontend.ui.screens
+ 
+-import com.example.proyectfinanzasinvisibles.backend.repositories.MetaRepository
+-import com.example.proyectfinanzasinvisibles.backend.data.MetaAhorro
+ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.runtime.setValue
+-import kotlinx.coroutines.CoroutineScope
+-import kotlinx.coroutines.Dispatchers
++import androidx.lifecycle.ViewModel
++import androidx.lifecycle.viewModelScope
++import com.example.proyectfinanzasinvisibles.backend.ai.GeminiApi
++import com.example.proyectfinanzasinvisibles.backend.data.MetaAhorro
++import com.example.proyectfinanzasinvisibles.backend.repositories.MetaRepository
+ import kotlinx.coroutines.launch
++import kotlinx.datetime.Clock
+ 
+-class MetasViewModel {
++class MetasViewModel : ViewModel() {
+     private val repository = MetaRepository()
+-    private val scope = CoroutineScope(Dispatchers.Main)
+-    
++    private val geminiApi = GeminiApi()
++
+     var metas by mutableStateOf<List<MetaAhorro>>(emptyList())
+         private set
+-    
+     var isLoading by mutableStateOf(false)
+         private set
++    var errorMessage by mutableStateOf<String?>(null)
++        private set
+ 
+     init {
+         cargarMetas()
+     }
+ 
+     fun cargarMetas() {
+-        scope.launch {
+-            try {
+-                isLoading = true
+-                val nuevasMetas = repository.obtenerMetas()
+-                metas = nuevasMetas
+-                // Log para depuración
+-                println("Metas cargadas: ${nuevasMetas.size}")
+-            } catch (e: Exception) {
+-                println("Error cargando metas: ${e.message}")
+-            } finally {
+-                isLoading = false
+-            }
++        viewModelScope.launch {
++            isLoading = true
++            errorMessage = null
++            runCatching { repository.obtenerMetas() }
++                .onSuccess { metas = it }
++                .onFailure { errorMessage = "No fue posible cargar las metas." }
++            isLoading = false
+         }
+     }
+ 
+-    fun calcularPorcentajeProgreso(meta: MetaAhorro): Float {
+-        if (meta.montoObjetivo <= 0.0) return 0f
+-        return (meta.montoAcumulado / meta.montoObjetivo).toFloat().coerceIn(0f, 1f)
+-    }
++    fun calcularPorcentajeProgreso(meta: MetaAhorro): Float =
++        if (meta.montoObjetivo <= 0.0) 0f
++        else (meta.montoAcumulado / meta.montoObjetivo).toFloat().coerceIn(0f, 1f)
+ 
+     fun crearMeta(titulo: String, objetivo: Double) {
+-        if (titulo.isBlank() || objetivo <= 0) return
+-
+-        val nuevaMeta = MetaAhorro(
+-            idMeta = "temp-${(100..999).random()}",
+-            titulo = titulo,
+-            montoObjetivo = objetivo,
+-            montoAcumulado = 0.0,
+-            rachaActualDias = 0,
+-            mejorRachaDias = 0,
+-            mensajeMotivacional = "¡Nueva meta creada! Empieza a ahorrar hoy."
+-        )
+-        
+-        scope.launch {
++        if (titulo.isBlank() || objetivo <= 0.0) return
++        viewModelScope.launch {
+             isLoading = true
+-            val exito = repository.guardarMeta(nuevaMeta)
+-            if (exito) {
+-                cargarMetas()
+-            }
++            errorMessage = null
++            val prompt = "Da una recomendación breve y concreta para ahorrar $objetivo MXN para la meta: $titulo"
++            val recommendation = geminiApi.analizarTexto(prompt).getOrNull()
++                ?.trim()?.takeIf { it.isNotBlank() }?.take(180)
++                ?: "Aparta una cantidad fija cada semana y registra aquí cada depósito."
++            val meta = MetaAhorro(
++                idMeta = "meta-${Clock.System.now().toEpochMilliseconds()}",
++                titulo = titulo.trim(),
++                montoObjetivo = objetivo,
++                montoAcumulado = 0.0,
++                rachaActualDias = 0,
++                mejorRachaDias = 0,
++                mensajeMotivacional = recommendation
++            )
++            if (repository.guardarMeta(meta)) cargarMetas()
++            else errorMessage = "No fue posible guardar la meta."
+             isLoading = false
+         }
+     }
+ 
+     fun eliminarMeta(id: String) {
+-        scope.launch {
+-            val exito = repository.eliminarMeta(id)
+-            if (exito) cargarMetas()
++        viewModelScope.launch {
++            if (repository.eliminarMeta(id)) cargarMetas()
++            else errorMessage = "No fue posible eliminar la meta."
+         }
+     }
+ 
+     fun editarMeta(id: String, titulo: String, objetivo: Double) {
+-        scope.launch {
+-            val exito = repository.editarMeta(id, titulo, objetivo)
+-            if (exito) cargarMetas()
++        viewModelScope.launch {
++            if (repository.editarMeta(id, titulo.trim(), objetivo)) cargarMetas()
++            else errorMessage = "No fue posible editar la meta."
+         }
+     }
+ 
+     fun sumarAhorroAMeta(idMeta: String, monto: Double) {
+-        val meta = metas.find { it.idMeta == idMeta } ?: return
+-        val nuevoAcumulado = meta.montoAcumulado + monto
+-        
+-        scope.launch {
++        val meta = metas.firstOrNull { it.idMeta == idMeta } ?: return
++        if (monto <= 0.0) return
++        viewModelScope.launch {
+             isLoading = true
+-            // 1. Actualizar la meta en Firestore
+-            val exitoMeta = repository.actualizarProgresoMeta(idMeta, nuevoAcumulado)
+-            
+-            if (exitoMeta) {
+-                // 2. Marcar los gastos como "Aplicado" en Firestore para que no se repitan
+-                val gastoRepo = com.example.proyectfinanzasinvisibles.backend.repositories.GastoRepository()
+-                val gastosRechazados = com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase.gastos
+-                    .filter { it.estado == "Rechazado" }
+-                
+-                gastosRechazados.forEach { gasto ->
+-                    gastoRepo.actualizarEstadoGasto(gasto.id, "Aplicado")
+-                }
+-                
+-                // 3. Actualizar la base de datos local
+-                val nuevosGastosLocales = com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase.gastos.map {
+-                    if (it.estado == "Rechazado") it.copy(estado = "Aplicado") else it
+-                }
+-                com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase.inicializarGastos(nuevosGastosLocales)
+-                
+-                cargarMetas()
+-            }
++            val nuevoAcumulado = (meta.montoAcumulado + monto).coerceAtMost(meta.montoObjetivo)
++            if (repository.actualizarProgresoMeta(idMeta, nuevoAcumulado)) cargarMetas()
++            else errorMessage = "No fue posible registrar el ahorro."
+             isLoading = false
+         }
+     }
+diff --git a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/theme/Color.kt b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/theme/Color.kt
+index d87cb2b..71ef556 100644
+--- a/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/theme/Color.kt
++++ b/shared/src/commonMain/kotlin/com/example/proyectfinanzasinvisibles/frontend/ui/theme/Color.kt
+@@ -6,9 +6,9 @@ val StealthBlack = Color(0xFF000000)
+ val StealthWhite = Color(0xFFFFFFFF)
+ val StealthOnSurface = Color(0xFFFFFFFF)
+ val StealthOnSurfaceVariant = Color(0xFFB0B0B0)
+-val StealthOutline = Color(0xFF404040)
+-val StealthOutlineVariant = Color(0xFF202020)
+-val StealthSurfaceHighest = Color(0xFF101010)
++val StealthOutline = Color(0xFF9E9E9E)
++val StealthOutlineVariant = Color(0xFF424242)
++val StealthSurfaceHighest = Color(0xFF121212)
+ 
+ val StealthError = Color(0xFFF44336)
+ val StealthOnError = Color(0xFFFFFFFF)
+diff --git a/shared/src/commonTest/kotlin/com/example/proyectfinanzasinvisibles/SharedCommonTest.kt b/shared/src/commonTest/kotlin/com/example/proyectfinanzasinvisibles/SharedCommonTest.kt
+index bd07855..91485f1 100644
+--- a/shared/src/commonTest/kotlin/com/example/proyectfinanzasinvisibles/SharedCommonTest.kt
++++ b/shared/src/commonTest/kotlin/com/example/proyectfinanzasinvisibles/SharedCommonTest.kt
+@@ -1,12 +1,40 @@
+ package com.example.proyectfinanzasinvisibles
+ 
++import com.example.proyectfinanzasinvisibles.backend.ai.ExpenseParser
+ import kotlin.test.Test
+ import kotlin.test.assertEquals
++import kotlin.test.assertFalse
++import kotlin.test.assertNotNull
++import kotlin.test.assertNull
++import kotlin.test.assertTrue
+ 
+ class SharedCommonTest {
++    @Test
++    fun extraeMontoConMilesYDecimales() {
++        assertEquals(1250.50, ExpenseParser.extractAmount("Compra aprobada por \$1,250.50 MXN"))
++    }
++
++    @Test
++    fun noConfundeTerminacionDeTarjetaConMonto() {
++        assertEquals(120.0, ExpenseParser.extractAmount("Compra con tarjeta 1234 por \$120"))
++    }
++
++    @Test
++    fun prefiereMontoDeCompraSobreSaldoDisponible() {
++        assertEquals(120.0, ExpenseParser.extractAmount("Saldo disponible \$5,000. Compra con tarjeta por \$120"))
++    }
++
++    @Test
++    fun ignoraIngresosYReembolsos() {
++        assertFalse(ExpenseParser.isExpenseNotification("Transferencia recibida por \$850"))
++        assertNull(ExpenseParser.parse("Reembolso de \$99.00"))
++    }
+ 
+     @Test
+-    fun example() {
+-        assertEquals(3, 1 + 2)
++    fun clasificaGastoHormigaSinInternet() {
++        val expense = ExpenseParser.parse("Compra en OXXO por \$75")
++        assertNotNull(expense)
++        assertEquals("Hormiga", expense.category)
++        assertTrue(expense.amount > 0.0)
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/shared/src/iosMain/kotlin/com/example/proyectfinanzasinvisibles/MainViewController.kt b/shared/src/iosMain/kotlin/com/example/proyectfinanzasinvisibles/MainViewController.kt
+index 50e46c7..c4002ee 100644
+--- a/shared/src/iosMain/kotlin/com/example/proyectfinanzasinvisibles/MainViewController.kt
++++ b/shared/src/iosMain/kotlin/com/example/proyectfinanzasinvisibles/MainViewController.kt
+@@ -1,5 +1,6 @@
+ package com.example.proyectfinanzasinvisibles
+ 
+ import androidx.compose.ui.window.ComposeUIViewController
++import com.example.proyectfinanzasinvisibles.frontend.App
+ 
+-fun MainViewController() = ComposeUIViewController { App() }
+\ No newline at end of file
++fun MainViewController() = ComposeUIViewController { App() }
+diff --git a/shared/src/iosMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/AuthRepository.kt b/shared/src/iosMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/AuthRepository.kt
+new file mode 100644
+index 0000000..b7dcb01
+--- /dev/null
++++ b/shared/src/iosMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/AuthRepository.kt
+@@ -0,0 +1,19 @@
++package com.example.proyectfinanzasinvisibles.backend.repositories
++
++actual class AuthRepository {
++    actual fun isUserLoggedIn(): Boolean = false
++    actual suspend fun getUserProfile(): Result<Map<String, Any>> = Result.success(emptyMap())
++    actual suspend fun signUp(email: String, password: String, nombre: String, apellido: String, fechaNacimiento: String, ciudad: String): Result<Unit> =
++        Result.failure(UnsupportedOperationException("Firebase Auth está disponible en la versión Android"))
++    actual suspend fun updateProfile(nombre: String, apellido: String, email: String): Result<Unit> =
++        Result.failure(UnsupportedOperationException("Edición de perfil disponible en Android"))
++    actual suspend fun reauthenticate(currentPassword: String): Result<Unit> =
++        Result.failure(UnsupportedOperationException("Reautenticación disponible en Android"))
++    actual suspend fun updatePassword(newPassword: String): Result<Unit> =
++        Result.failure(UnsupportedOperationException("Cambio de contraseña disponible en Android"))
++    actual suspend fun login(email: String, password: String): Result<Unit> =
++        Result.failure(UnsupportedOperationException("Inicio de sesión disponible en Android"))
++    actual suspend fun actualizarRacha(): Int = 0
++    actual fun logout() = Unit
++}
++
+diff --git a/shared/src/iosMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/GastoRepository.kt b/shared/src/iosMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/GastoRepository.kt
+new file mode 100644
+index 0000000..256a2bc
+--- /dev/null
++++ b/shared/src/iosMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/GastoRepository.kt
+@@ -0,0 +1,18 @@
++package com.example.proyectfinanzasinvisibles.backend.repositories
++
++import com.example.proyectfinanzasinvisibles.backend.data.Gasto
++import com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase
++
++actual class GastoRepository {
++    actual suspend fun sincronizarGasto(gasto: Gasto): Boolean = false
++    actual suspend fun actualizarEstadoGasto(gastoId: String, nuevoEstado: String): Boolean {
++        GastoDatabase.cambiarEstado(gastoId, nuevoEstado)
++        return true
++    }
++    actual suspend fun actualizarGasto(gasto: Gasto): Boolean {
++        GastoDatabase.actualizarGasto(gasto)
++        return true
++    }
++    actual suspend fun obtenerGastos(): List<Gasto> = GastoDatabase.obtenerGastosLocales()
++}
++
+diff --git a/shared/src/iosMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/MetaRepository.kt b/shared/src/iosMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/MetaRepository.kt
+index 5b56187..dcf48e4 100644
+--- a/shared/src/iosMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/MetaRepository.kt
++++ b/shared/src/iosMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/MetaRepository.kt
+@@ -3,7 +3,20 @@ package com.example.proyectfinanzasinvisibles.backend.repositories
+ import com.example.proyectfinanzasinvisibles.backend.data.MetaAhorro
+ 
+ actual class MetaRepository {
+-    actual suspend fun obtenerMetas(): List<MetaAhorro> = emptyList()
+-    actual suspend fun guardarMeta(meta: MetaAhorro): Boolean = false
+-    actual suspend fun actualizarProgresoMeta(docId: String, nuevoAcumulado: Double): Boolean = false
++    private val metas = mutableListOf<MetaAhorro>()
++    actual suspend fun obtenerMetas(): List<MetaAhorro> = metas.toList()
++    actual suspend fun guardarMeta(meta: MetaAhorro): Boolean = metas.add(meta)
++    actual suspend fun actualizarProgresoMeta(docId: String, nuevoAcumulado: Double): Boolean {
++        val index = metas.indexOfFirst { it.idMeta == docId }
++        if (index < 0) return false
++        metas[index] = metas[index].copy(montoAcumulado = nuevoAcumulado)
++        return true
++    }
++    actual suspend fun eliminarMeta(docId: String): Boolean = metas.removeAll { it.idMeta == docId }
++    actual suspend fun editarMeta(docId: String, titulo: String, objetivo: Double): Boolean {
++        val index = metas.indexOfFirst { it.idMeta == docId }
++        if (index < 0) return false
++        metas[index] = metas[index].copy(titulo = titulo, montoObjetivo = objetivo)
++        return true
++    }
+ }
+diff --git a/shared/src/jsMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/AuthRepository.kt b/shared/src/jsMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/AuthRepository.kt
+new file mode 100644
+index 0000000..b7dcb01
+--- /dev/null
++++ b/shared/src/jsMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/AuthRepository.kt
+@@ -0,0 +1,19 @@
++package com.example.proyectfinanzasinvisibles.backend.repositories
++
++actual class AuthRepository {
++    actual fun isUserLoggedIn(): Boolean = false
++    actual suspend fun getUserProfile(): Result<Map<String, Any>> = Result.success(emptyMap())
++    actual suspend fun signUp(email: String, password: String, nombre: String, apellido: String, fechaNacimiento: String, ciudad: String): Result<Unit> =
++        Result.failure(UnsupportedOperationException("Firebase Auth está disponible en la versión Android"))
++    actual suspend fun updateProfile(nombre: String, apellido: String, email: String): Result<Unit> =
++        Result.failure(UnsupportedOperationException("Edición de perfil disponible en Android"))
++    actual suspend fun reauthenticate(currentPassword: String): Result<Unit> =
++        Result.failure(UnsupportedOperationException("Reautenticación disponible en Android"))
++    actual suspend fun updatePassword(newPassword: String): Result<Unit> =
++        Result.failure(UnsupportedOperationException("Cambio de contraseña disponible en Android"))
++    actual suspend fun login(email: String, password: String): Result<Unit> =
++        Result.failure(UnsupportedOperationException("Inicio de sesión disponible en Android"))
++    actual suspend fun actualizarRacha(): Int = 0
++    actual fun logout() = Unit
++}
++
+diff --git a/shared/src/jsMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/GastoRepository.kt b/shared/src/jsMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/GastoRepository.kt
+new file mode 100644
+index 0000000..256a2bc
+--- /dev/null
++++ b/shared/src/jsMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/GastoRepository.kt
+@@ -0,0 +1,18 @@
++package com.example.proyectfinanzasinvisibles.backend.repositories
++
++import com.example.proyectfinanzasinvisibles.backend.data.Gasto
++import com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase
++
++actual class GastoRepository {
++    actual suspend fun sincronizarGasto(gasto: Gasto): Boolean = false
++    actual suspend fun actualizarEstadoGasto(gastoId: String, nuevoEstado: String): Boolean {
++        GastoDatabase.cambiarEstado(gastoId, nuevoEstado)
++        return true
++    }
++    actual suspend fun actualizarGasto(gasto: Gasto): Boolean {
++        GastoDatabase.actualizarGasto(gasto)
++        return true
++    }
++    actual suspend fun obtenerGastos(): List<Gasto> = GastoDatabase.obtenerGastosLocales()
++}
++
+diff --git a/shared/src/jsMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/MetaRepository.kt b/shared/src/jsMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/MetaRepository.kt
+new file mode 100644
+index 0000000..01d5c1a
+--- /dev/null
++++ b/shared/src/jsMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/MetaRepository.kt
+@@ -0,0 +1,23 @@
++package com.example.proyectfinanzasinvisibles.backend.repositories
++
++import com.example.proyectfinanzasinvisibles.backend.data.MetaAhorro
++
++actual class MetaRepository {
++    private val metas = mutableListOf<MetaAhorro>()
++    actual suspend fun obtenerMetas(): List<MetaAhorro> = metas.toList()
++    actual suspend fun guardarMeta(meta: MetaAhorro): Boolean = metas.add(meta)
++    actual suspend fun actualizarProgresoMeta(docId: String, nuevoAcumulado: Double): Boolean {
++        val index = metas.indexOfFirst { it.idMeta == docId }
++        if (index < 0) return false
++        metas[index] = metas[index].copy(montoAcumulado = nuevoAcumulado)
++        return true
++    }
++    actual suspend fun eliminarMeta(docId: String): Boolean = metas.removeAll { it.idMeta == docId }
++    actual suspend fun editarMeta(docId: String, titulo: String, objetivo: Double): Boolean {
++        val index = metas.indexOfFirst { it.idMeta == docId }
++        if (index < 0) return false
++        metas[index] = metas[index].copy(titulo = titulo, montoObjetivo = objetivo)
++        return true
++    }
++}
++
+diff --git a/shared/src/wasmJsMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/AuthRepository.kt b/shared/src/wasmJsMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/AuthRepository.kt
+new file mode 100644
+index 0000000..b7dcb01
+--- /dev/null
++++ b/shared/src/wasmJsMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/AuthRepository.kt
+@@ -0,0 +1,19 @@
++package com.example.proyectfinanzasinvisibles.backend.repositories
++
++actual class AuthRepository {
++    actual fun isUserLoggedIn(): Boolean = false
++    actual suspend fun getUserProfile(): Result<Map<String, Any>> = Result.success(emptyMap())
++    actual suspend fun signUp(email: String, password: String, nombre: String, apellido: String, fechaNacimiento: String, ciudad: String): Result<Unit> =
++        Result.failure(UnsupportedOperationException("Firebase Auth está disponible en la versión Android"))
++    actual suspend fun updateProfile(nombre: String, apellido: String, email: String): Result<Unit> =
++        Result.failure(UnsupportedOperationException("Edición de perfil disponible en Android"))
++    actual suspend fun reauthenticate(currentPassword: String): Result<Unit> =
++        Result.failure(UnsupportedOperationException("Reautenticación disponible en Android"))
++    actual suspend fun updatePassword(newPassword: String): Result<Unit> =
++        Result.failure(UnsupportedOperationException("Cambio de contraseña disponible en Android"))
++    actual suspend fun login(email: String, password: String): Result<Unit> =
++        Result.failure(UnsupportedOperationException("Inicio de sesión disponible en Android"))
++    actual suspend fun actualizarRacha(): Int = 0
++    actual fun logout() = Unit
++}
++
+diff --git a/shared/src/wasmJsMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/GastoRepository.kt b/shared/src/wasmJsMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/GastoRepository.kt
+new file mode 100644
+index 0000000..256a2bc
+--- /dev/null
++++ b/shared/src/wasmJsMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/GastoRepository.kt
+@@ -0,0 +1,18 @@
++package com.example.proyectfinanzasinvisibles.backend.repositories
++
++import com.example.proyectfinanzasinvisibles.backend.data.Gasto
++import com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase
++
++actual class GastoRepository {
++    actual suspend fun sincronizarGasto(gasto: Gasto): Boolean = false
++    actual suspend fun actualizarEstadoGasto(gastoId: String, nuevoEstado: String): Boolean {
++        GastoDatabase.cambiarEstado(gastoId, nuevoEstado)
++        return true
++    }
++    actual suspend fun actualizarGasto(gasto: Gasto): Boolean {
++        GastoDatabase.actualizarGasto(gasto)
++        return true
++    }
++    actual suspend fun obtenerGastos(): List<Gasto> = GastoDatabase.obtenerGastosLocales()
++}
++
+diff --git a/shared/src/wasmJsMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/MetaRepository.kt b/shared/src/wasmJsMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/MetaRepository.kt
+new file mode 100644
+index 0000000..01d5c1a
+--- /dev/null
++++ b/shared/src/wasmJsMain/kotlin/com/example/proyectfinanzasinvisibles/backend/repositories/MetaRepository.kt
+@@ -0,0 +1,23 @@
++package com.example.proyectfinanzasinvisibles.backend.repositories
++
++import com.example.proyectfinanzasinvisibles.backend.data.MetaAhorro
++
++actual class MetaRepository {
++    private val metas = mutableListOf<MetaAhorro>()
++    actual suspend fun obtenerMetas(): List<MetaAhorro> = metas.toList()
++    actual suspend fun guardarMeta(meta: MetaAhorro): Boolean = metas.add(meta)
++    actual suspend fun actualizarProgresoMeta(docId: String, nuevoAcumulado: Double): Boolean {
++        val index = metas.indexOfFirst { it.idMeta == docId }
++        if (index < 0) return false
++        metas[index] = metas[index].copy(montoAcumulado = nuevoAcumulado)
++        return true
++    }
++    actual suspend fun eliminarMeta(docId: String): Boolean = metas.removeAll { it.idMeta == docId }
++    actual suspend fun editarMeta(docId: String, titulo: String, objetivo: Double): Boolean {
++        val index = metas.indexOfFirst { it.idMeta == docId }
++        if (index < 0) return false
++        metas[index] = metas[index].copy(titulo = titulo, montoObjetivo = objetivo)
++        return true
++    }
++}
++
+diff --git a/webApp/src/webMain/kotlin/com/example/proyectfinanzasinvisibles/main.kt b/webApp/src/webMain/kotlin/com/example/proyectfinanzasinvisibles/main.kt
+index bc27639..1da8296 100644
+--- a/webApp/src/webMain/kotlin/com/example/proyectfinanzasinvisibles/main.kt
++++ b/webApp/src/webMain/kotlin/com/example/proyectfinanzasinvisibles/main.kt
+@@ -2,10 +2,11 @@ package com.example.proyectfinanzasinvisibles
+ 
+ import androidx.compose.ui.ExperimentalComposeUiApi
+ import androidx.compose.ui.window.ComposeViewport
++import com.example.proyectfinanzasinvisibles.frontend.App
+ 
+ @OptIn(ExperimentalComposeUiApi::class)
+ fun main() {
+     ComposeViewport {
+         App()
+     }
+-}
+\ No newline at end of file
++}

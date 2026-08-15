@@ -19,25 +19,24 @@ import kotlinx.serialization.json.put
  * Clase encargada de conectar el frontend con el backend Ktor alojado en Railway.
  */
 class GeminiApi {
-
-    private val backendUrl =
-        "https://finanzas-invisibles-api-production.up.railway.app/api/analizar"
-
-    private val client = HttpClient {
-        install(HttpTimeout) {
-            requestTimeoutMillis = 30000 // Aumentado a 30s por si el backend está "dormido"
-            connectTimeoutMillis = 30000
-            socketTimeoutMillis = 30000
+    private companion object {
+        const val BACKEND_URL = "https://finanzas-invisibles-api-production.up.railway.app/api/analizar"
+        val client = HttpClient {
+            install(HttpTimeout) {
+                requestTimeoutMillis = 15_000
+                connectTimeoutMillis = 10_000
+                socketTimeoutMillis = 15_000
+            }
         }
     }
 
-    suspend fun analizarTexto(textoBanco: String): String {
+    suspend fun analizarTexto(textoBanco: String): Result<String> {
         return try {
             val requestBody = buildJsonObject {
                 put("textoBanco", textoBanco)
             }.toString()
 
-            val response = client.post(backendUrl) {
+            val response = client.post(BACKEND_URL) {
                 contentType(ContentType.Application.Json)
                 setBody(requestBody)
             }
@@ -45,15 +44,15 @@ class GeminiApi {
             if (response.status.isSuccess()) {
                 extraerRespuestaBackend(response.bodyAsText())
             } else {
-                "Error del servidor: ${response.status.value}"
+                Result.failure(IllegalStateException("El servidor respondió ${response.status.value}"))
             }
 
         } catch (e: Exception) {
-            "Error al conectar con el backend: ${e.message}"
+            Result.failure(e)
         }
     }
 
-    private fun extraerRespuestaBackend(jsonText: String): String {
+    private fun extraerRespuestaBackend(jsonText: String): Result<String> {
         return try {
             val root = Json.parseToJsonElement(jsonText).jsonObject
 
@@ -62,18 +61,14 @@ class GeminiApi {
             val error = root["error"]?.jsonPrimitive?.contentOrNull
 
             if (ok == "true") {
-                resultado ?: "El backend respondió correctamente, pero no devolvió resultado."
+                resultado?.takeIf { it.isNotBlank() }?.let { Result.success(it) }
+                    ?: Result.failure(IllegalStateException("El backend no devolvió resultado"))
             } else {
-                "Error del backend: ${error ?: "Error desconocido"}"
+                Result.failure(IllegalStateException(error ?: "Error desconocido del backend"))
             }
 
         } catch (e: Exception) {
-            "Error al leer la respuesta del backend: ${e.message}"
+            Result.failure(e)
         }
     }
-}
-
-suspend fun postCategorizarGasto(textoBanco: String): String {
-    val api = GeminiApi()
-    return api.analizarTexto(textoBanco)
 }

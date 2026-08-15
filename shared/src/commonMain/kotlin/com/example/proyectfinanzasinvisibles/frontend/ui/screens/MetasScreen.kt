@@ -20,36 +20,29 @@ import androidx.compose.ui.unit.sp
 import com.example.proyectfinanzasinvisibles.backend.data.*
 import com.example.proyectfinanzasinvisibles.frontend.ui.components.BounceButton
 import com.example.proyectfinanzasinvisibles.frontend.ui.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.datetime.Clock
 
 @Composable
 fun MetasScreen() {
     val s = LocalStrings.current
-    val viewModel = remember { MetasViewModel() }
+    val viewModel: MetasViewModel = viewModel()
     
     // Observamos los gastos de forma reactiva
     val gastos = GastoDatabase.gastos
     
-    // Forzar recarga al entrar a la pantalla
-    LaunchedEffect(Unit) {
-        viewModel.cargarMetas()
-    }
-
     val metas = viewModel.metas
     val isLoading = viewModel.isLoading
 
+    val weekStart = Clock.System.now().toEpochMilliseconds() - 7L * 24L * 60L * 60L * 1000L
     val totalHormigaMes = remember(gastos.size, gastos.map { it.estado }) {
-        gastos.filter { (it.categoria == "Hormiga" || it.tipo == "Gasto Hormiga") && it.estado == "Aceptado" }
+        gastos.filter { (it.categoria == "Hormiga" || it.tipo == "Gasto Hormiga") && it.estado == "Aceptado" && it.fecha >= weekStart }
             .sumOf { it.monto }
     }
 
     var showDialog by remember { mutableStateOf(false) }
     var metaParaEditar by remember { mutableStateOf<MetaAhorro?>(null) }
     var showApplySavingsDialog by remember { mutableStateOf(false) }
-
-    // Consideramos "Ahorro Potencial" los gastos que el usuario RECHAZÓ (decidió no gastar)
-    val ahorroPotencial = remember(gastos.size, gastos.map { it.estado }) {
-        gastos.filter { it.estado == "Rechazado" }.sumOf { it.monto }
-    }
 
     Column(
         modifier = Modifier
@@ -84,8 +77,7 @@ fun MetasScreen() {
             }
         }
 
-        // NUEVA: Tarjeta de Ahorro Potencial (Lo que evitaste gastar)
-        if (ahorroPotencial > 0) {
+        if (metas.isNotEmpty()) {
             Card(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
                 shape = RoundedCornerShape(8.dp),
@@ -98,16 +90,11 @@ fun MetasScreen() {
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "AHORRO POR GASTOS EVITADOS",
+                            text = "REGISTRO DE AHORRO",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary
                         )
-                        Text(
-                            text = "$${ahorroPotencial.toInt()}",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text("Agrega solo dinero que realmente apartaste.", style = MaterialTheme.typography.bodySmall)
                     }
                     
                     Button(
@@ -115,7 +102,7 @@ fun MetasScreen() {
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Text("APLICAR", style = MaterialTheme.typography.labelSmall)
+                        Text("REGISTRAR", style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
@@ -127,6 +114,11 @@ fun MetasScreen() {
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(bottom = 12.dp)
         )
+
+        viewModel.errorMessage?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(bottom = 12.dp))
+        }
 
         if (isLoading) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -189,11 +181,10 @@ fun MetasScreen() {
 
     if (showApplySavingsDialog) {
         ApplySavingsDialog(
-            monto = ahorroPotencial,
             metas = metas,
             onDismiss = { showApplySavingsDialog = false },
-            onConfirm = { idMeta ->
-                viewModel.sumarAhorroAMeta(idMeta, ahorroPotencial)
+            onConfirm = { idMeta, monto ->
+                viewModel.sumarAhorroAMeta(idMeta, monto)
                 showApplySavingsDialog = false
             }
         )
@@ -202,36 +193,51 @@ fun MetasScreen() {
 
 @Composable
 fun ApplySavingsDialog(
-    monto: Double,
     metas: List<MetaAhorro>,
     onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
+    onConfirm: (String, Double) -> Unit
 ) {
+    var selectedId by remember { mutableStateOf(metas.firstOrNull()?.idMeta.orEmpty()) }
+    var amount by remember { mutableStateOf("") }
+    val parsedAmount = amount.replace(',', '.').toDoubleOrNull()
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Aplicar Ahorro a Meta") },
+        title = { Text("Registrar ahorro") },
         text = {
             Column {
-                Text("Tienes $${monto.toInt()} ahorrados al evitar gastos innecesarios. ¿A qué meta quieres aplicarlos?")
+                Text("Elige una meta e indica cuánto dinero apartaste realmente.")
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { amount = it },
+                    label = { Text("Monto ahorrado") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
                 Spacer(modifier = Modifier.height(16.dp))
                 LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
                     items(metas) { meta ->
                         TextButton(
-                            onClick = { onConfirm(meta.idMeta) },
+                            onClick = { selectedId = meta.idMeta },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text(meta.titulo, color = MaterialTheme.colorScheme.onSurface)
-                                Text("${( (meta.montoAcumulado/meta.montoObjetivo)*100 ).toInt()}%", color = MaterialTheme.colorScheme.primary)
+                                RadioButton(selected = selectedId == meta.idMeta, onClick = { selectedId = meta.idMeta })
                             }
                         }
                     }
                 }
             }
         },
-        confirmButton = {},
+        confirmButton = {
+            Button(
+                enabled = selectedId.isNotBlank() && parsedAmount != null && parsedAmount > 0.0,
+                onClick = { onConfirm(selectedId, parsedAmount ?: 0.0) }
+            ) { Text("Guardar") }
+        },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cerrar") }
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
         }
     )
 }
@@ -324,7 +330,7 @@ fun MetaCard(
             Spacer(modifier = Modifier.height(16.dp))
             
             Text(
-                text = "💡 ${meta.mensajeMotivacional}",
+                text = "Sugerencia: ${meta.mensajeMotivacional}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic

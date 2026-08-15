@@ -30,7 +30,11 @@ enum class Screen {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 @Preview
-fun App(onLogout: () -> Unit = {}) {
+fun App(
+    onLogout: () -> Unit = {},
+    startWithOnboarding: Boolean = false,
+    onOnboardingComplete: () -> Unit = {}
+) {
     var language by remember { mutableStateOf(Language.ES) }
     val focusManager = LocalFocusManager.current
     
@@ -38,10 +42,15 @@ fun App(onLogout: () -> Unit = {}) {
         val s = LocalStrings.current
         
         StealthMonochromeTheme {
-            var currentScreen by remember { mutableStateOf(Screen.Home) }
+            var currentScreen by remember(startWithOnboarding) {
+                mutableStateOf(if (startWithOnboarding) Screen.Onboarding else Screen.Home)
+            }
 
             if (currentScreen == Screen.Onboarding) {
-                OnboardingScreen(onStartClick = { currentScreen = Screen.Home })
+                OnboardingScreen(onStartClick = {
+                    onOnboardingComplete()
+                    currentScreen = Screen.Home
+                })
             } else {
                 Surface(
                     modifier = Modifier
@@ -118,7 +127,7 @@ fun App(onLogout: () -> Unit = {}) {
                             .fillMaxSize()
                     ) {
                         when (currentScreen) {
-                            Screen.Home -> DashboardScreen()
+                            Screen.Home -> DashboardScreen(onOpenAlerts = { currentScreen = Screen.Alerts })
                             Screen.History -> HistoryScreen()
                             Screen.Alerts -> AlertasScreen()
                             Screen.Goals -> MetasScreen()
@@ -139,7 +148,6 @@ fun App(onLogout: () -> Unit = {}) {
             }
         }
     }
-}
 }
 
 @Composable

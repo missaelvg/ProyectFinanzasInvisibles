@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    match /users/{userId} {
+      allow create, read, update, delete: if signedIn() && request.auth.uid == userId;
+    }
+
+    match /gastos_hormiga/{gastoId} {
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, delete: if signedIn() && resource.data.userId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+    }
+
+    match /metas/{metaId} {
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, delete: if signedIn() && resource.data.userId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+    }
+  }
+}

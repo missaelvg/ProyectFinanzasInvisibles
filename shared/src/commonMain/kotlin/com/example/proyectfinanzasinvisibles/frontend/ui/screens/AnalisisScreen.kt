@@ -78,9 +78,16 @@ fun AnalisisScreen(onNavToHistory: () -> Unit = {}) {
                 scope.launch {
                     try {
                         isLoading = true
-                        resultado = if (s.language == "Language") "Analyzing with IA..." else "Analizando con IA..."
+                        resultado = if (s.language == "Language") "Analyzing expense..." else "Analizando gasto..."
                         
-                        val nuevoGasto = geminiHelper.clasificarGasto(inputText)
+                        val classification = geminiHelper.clasificarConDetalle(inputText)
+                        if (classification == null) {
+                            resultado = if (s.language == "Language")
+                                "No expense amount was found, or the message looks like income/refund."
+                                else "No encontré un monto de gasto o el texto parece un ingreso/reembolso."
+                            return@launch
+                        }
+                        val nuevoGasto = classification.gasto
                         
                         // Actualizar localmente de inmediato para mejorar la respuesta visual
                         GastoDatabase.guardarGastoLocal(nuevoGasto)
@@ -91,9 +98,11 @@ fun AnalisisScreen(onNavToHistory: () -> Unit = {}) {
                         } ?: false
                         
                         if (exito) {
+                            GastoDatabase.marcarSincronizado(nuevoGasto.id)
+                            val method = if (classification.usedAi) "IA + reglas locales" else "reglas locales"
                             resultado = if (s.language == "Language") 
-                                "Detected: ${nuevoGasto.tipo}. Redirecting to History..." 
-                                else "Detectado: ${nuevoGasto.tipo}. Redirigiendo a Historial..."
+                                "Detected: ${nuevoGasto.tipo}. Review it in History."
+                                else "Detectado como ${nuevoGasto.tipo} mediante $method. Revísalo en Historial."
                             inputText = ""
                             
                             // Pequeña pausa para que el usuario lea el resultado antes de navegar
@@ -101,8 +110,8 @@ fun AnalisisScreen(onNavToHistory: () -> Unit = {}) {
                             onNavToHistory()
                         } else {
                             resultado = if (s.language == "Language")
-                                "Detected locally: ${nuevoGasto.tipo}. Cloud sync failed (Check backend)."
-                                else "Detectado localmente: ${nuevoGasto.tipo}. Error al sincronizar (Backend lento o caído)."
+                                "Saved locally as ${nuevoGasto.tipo}; cloud sync is pending."
+                                else "Guardado localmente como ${nuevoGasto.tipo}; la sincronización está pendiente."
                         }
                     } catch (e: Exception) {
                         resultado = "Error: ${e.message}"

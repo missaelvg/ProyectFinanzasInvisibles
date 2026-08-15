@@ -8,6 +8,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,9 +29,10 @@ import com.example.proyectfinanzasinvisibles.frontend.ui.*
 import com.example.proyectfinanzasinvisibles.backend.data.*
 import com.example.proyectfinanzasinvisibles.backend.repositories.*
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
 
 @Composable
-fun DashboardScreen() {
+fun DashboardScreen(onOpenAlerts: () -> Unit = {}) {
     val s = LocalStrings.current
     val authRepository = remember { AuthRepository() }
     val gastoRepository = remember { GastoRepository() }
@@ -40,26 +43,21 @@ fun DashboardScreen() {
     var streak by remember { mutableStateOf(0) }
     
     LaunchedEffect(Unit) {
-        val profile = authRepository.getUserProfile()
-        if (profile.isSuccess) {
-            streak = (profile.getOrNull()?.get("racha") as? Long)?.toInt() ?: 0
-        }
-        // Actualizar gastos locales desde Firebase
-        val gastosFirebase = gastoRepository.obtenerGastos()
-        if (gastosFirebase.isNotEmpty()) {
-            GastoDatabase.inicializarGastos(gastosFirebase)
+        streak = authRepository.actualizarRacha()
+        if (streak == 0) {
+            val profile = authRepository.getUserProfile()
+            streak = (profile.getOrNull()?.get("racha") as? Number)?.toInt() ?: 0
         }
     }
 
-    val totalGastado = remember(gastos) { gastos.filter { it.estado == "Aceptado" }.sumOf { it.monto } }
-    val totalHormiga = remember(gastos) {
-        gastos.filter { (it.categoria == "Hormiga" || it.tipo == "Gasto Hormiga") && it.estado == "Aceptado" }
+    val weekStart = Clock.System.now().toEpochMilliseconds() - 7L * 24L * 60L * 60L * 1000L
+    val gastosSemanales = gastos.filter { it.estado == "Aceptado" && it.fecha >= weekStart }
+    val totalGastado = gastosSemanales.sumOf { it.monto }
+    val totalHormiga = gastosSemanales
+        .filter { it.categoria == "Hormiga" || it.tipo == "Gasto Hormiga" }
             .sumOf { it.monto }
-    }
 
-    val gastoPendiente = remember(gastos) {
-        gastos.firstOrNull { it.estado == "Pendiente" }
-    }
+    val gastoPendiente = gastos.firstOrNull { it.estado == "Pendiente" }
 
     Column(
         modifier = Modifier
@@ -98,12 +96,13 @@ fun DashboardScreen() {
                 }
             }
 
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-            )
+            IconButton(onClick = onOpenAlerts) {
+                Icon(
+                    Icons.Default.Notifications,
+                    contentDescription = "Abrir alertas",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -154,14 +153,9 @@ fun DashboardScreen() {
                 gasto = gasto,
                 onAction = { nuevoEstado ->
                     scope.launch {
+                        GastoDatabase.actualizarGasto(gasto.copy(estado = nuevoEstado, sincronizado = false))
                         val exito = gastoRepository.actualizarEstadoGasto(gasto.id, nuevoEstado)
-                        if (exito) {
-                            // Actualizar localmente
-                            val nuevosGastos = GastoDatabase.gastos.map {
-                                if (it.id == gasto.id) it.copy(estado = nuevoEstado) else it
-                            }
-                            GastoDatabase.inicializarGastos(nuevosGastos)
-                        }
+                        if (exito) GastoDatabase.marcarSincronizado(gasto.id)
                     }
                 }
             )
@@ -169,7 +163,7 @@ fun DashboardScreen() {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        DistribucionFugasCard(total = totalGastado, gastos = gastos)
+        DistribucionFugasCard(total = totalGastado, gastos = gastosSemanales)
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -181,16 +175,26 @@ fun DashboardScreen() {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        gastos.take(5).forEach { gasto ->
+        gastos.sortedByDescending { it.fecha }.take(5).forEach { gasto ->
             RecentItem(
                 title = gasto.descripcion,
                 category = gasto.categoria,
                 amount = "-$${gasto.monto.toInt()}",
-                time = s.justNow
+                time = relativeTime(gasto.fecha)
             )
         }
 
         Spacer(modifier = Modifier.height(80.dp))
+    }
+}
+
+private fun relativeTime(timestamp: Long): String {
+    val elapsedMinutes = ((Clock.System.now().toEpochMilliseconds() - timestamp).coerceAtLeast(0L) / 60_000L)
+    return when {
+        elapsedMinutes < 1 -> "Ahora"
+        elapsedMinutes < 60 -> "Hace $elapsedMinutes min"
+        elapsedMinutes < 1_440 -> "Hace ${elapsedMinutes / 60} h"
+        else -> "Hace ${elapsedMinutes / 1_440} días"
     }
 }
 
@@ -330,7 +334,7 @@ fun DeteccionInteligenteCard(gasto: Gasto, onAction: (String) -> Unit) {
 @Composable
 fun DistribucionFugasCard(total: Double, gastos: List<Gasto>) {
     val s = LocalStrings.current
-    val categorias = gastos.groupBy { it.categoria }
+    val categorias = gastos.filter { it.estado == "Aceptado" }.groupBy { it.categoria }
     val proportions = if (total > 0) {
         categorias.map { (it.value.sumOf { g -> g.monto } / total).toFloat() }
     } else listOf(1f)

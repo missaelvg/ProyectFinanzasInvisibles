@@ -5,89 +5,92 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.proyectfinanzasinvisibles.backend.data.*
+import com.example.proyectfinanzasinvisibles.backend.data.Gasto
+import com.example.proyectfinanzasinvisibles.backend.data.GastoDatabase
 import com.example.proyectfinanzasinvisibles.backend.repositories.GastoRepository
-import com.example.proyectfinanzasinvisibles.frontend.ui.*
+import com.example.proyectfinanzasinvisibles.frontend.ui.LocalStrings
 import kotlinx.coroutines.launch
+import kotlin.math.round
 
 @Composable
 fun HistoryScreen() {
     val s = LocalStrings.current
     val scope = rememberCoroutineScope()
-    val gastoRepository = remember { GastoRepository() }
-    
-    val todosLosGastos = GastoDatabase.gastos
-    val gastosPendientes = todosLosGastos.filter { it.estado == "Pendiente" }
-    
+    val repository = remember { GastoRepository() }
+    val pendientes = GastoDatabase.gastos
+        .filter { it.estado == "Pendiente" }
+        .sortedByDescending { it.fecha }
+    var gastoParaEditar by remember { mutableStateOf<Gasto?>(null) }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    fun updateStatus(gasto: Gasto, status: String) {
+        GastoDatabase.actualizarGasto(gasto.copy(estado = status, sincronizado = false))
+        scope.launch {
+            val success = repository.actualizarEstadoGasto(gasto.id, status)
+            if (success) GastoDatabase.marcarSincronizado(gasto.id)
+            else message = "El cambio quedó guardado en el dispositivo y se sincronizará cuando haya conexión."
+        }
+    }
+
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp)
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)
     ) {
-        Text(
-            text = s.history, 
-            style = MaterialTheme.typography.headlineLarge,
-            color = MaterialTheme.colorScheme.onBackground
-        )
+        Text(s.history, style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.onBackground)
+        Spacer(Modifier.height(24.dp))
+        Text("GASTOS POR REVISAR", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+        message?.let {
+            Spacer(Modifier.height(12.dp))
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+        }
+        Spacer(Modifier.height(16.dp))
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = "GASTOS POR APROBAR", 
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.outline
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(gastosPendientes) { gasto ->
+        LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(pendientes, key = { it.id }) { gasto ->
                 PendingExpenseCard(
                     gasto = gasto,
-                    onAceptar = {
-                        scope.launch {
-                            GastoDatabase.aceptarGasto(gasto.id)
-                            gastoRepository.actualizarEstadoGasto(gasto.id, "Aceptado")
-                        }
-                    },
-                    onRechazar = {
-                        scope.launch {
-                            // Lo marcamos como Rechazado para que sume al ahorro potencial en Metas
-                            val exito = gastoRepository.actualizarEstadoGasto(gasto.id, "Rechazado")
-                            if (exito) {
-                                val nuevosGastos = GastoDatabase.gastos.map {
-                                    if (it.id == gasto.id) it.copy(estado = "Rechazado") else it
-                                }
-                                GastoDatabase.inicializarGastos(nuevosGastos)
-                            }
-                        }
-                    }
+                    onAceptar = { updateStatus(gasto, "Aceptado") },
+                    onRechazar = { updateStatus(gasto, "Rechazado") },
+                    onEditar = { gastoParaEditar = gasto }
                 )
             }
-
-            if (gastosPendientes.isEmpty()) {
+            if (pendientes.isEmpty()) {
                 item {
-                    Box(modifier = Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
                         Text("No tienes gastos pendientes", color = MaterialTheme.colorScheme.outline)
                     }
                 }
             }
         }
+    }
+
+    gastoParaEditar?.let { gasto ->
+        EditExpenseDialog(
+            gasto = gasto,
+            onDismiss = { gastoParaEditar = null },
+            onConfirm = { edited ->
+                GastoDatabase.actualizarGasto(edited.copy(sincronizado = false))
+                gastoParaEditar = null
+                scope.launch {
+                    val success = repository.actualizarGasto(edited)
+                    if (success) GastoDatabase.marcarSincronizado(edited.id)
+                    else message = "La edición quedó guardada localmente; falta sincronizarla."
+                }
+            }
+        )
     }
 }
 
@@ -95,76 +98,82 @@ fun HistoryScreen() {
 fun PendingExpenseCard(
     gasto: Gasto,
     onAceptar: () -> Unit,
-    onRechazar: () -> Unit
+    onRechazar: () -> Unit,
+    onEditar: () -> Unit
 ) {
     val isHormiga = gasto.tipo == "Gasto Hormiga"
-    val badgeColor = if (isHormiga) Color(0xFFFF5722) else Color(0xFF2196F3)
-
+    val badgeColor = if (isHormiga) Color(0xFFFF8A65) else Color(0xFF64B5F6)
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Surface(
-                        color = badgeColor.copy(alpha = 0.1f),
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
-                        Text(
-                            text = gasto.tipo.uppercase(),
-                            color = badgeColor,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
+        Column(Modifier.padding(16.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    Surface(color = badgeColor.copy(alpha = 0.14f), shape = RoundedCornerShape(4.dp)) {
+                        Text(gasto.tipo.uppercase(), color = badgeColor, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = gasto.descripcion,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(gasto.descripcion, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                    Text(gasto.categoria, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                 }
-                Text(
-                    text = "$${gasto.monto}",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Text("$${gasto.monto.toMoney()}", style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
             }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                TextButton(
-                    onClick = onRechazar,
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("RECHAZAR / EDITAR")
+            Spacer(Modifier.height(16.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onEditar) {
+                    Icon(Icons.Default.Edit, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("EDITAR")
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(
-                    onClick = onAceptar,
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                ) {
-                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("ACEPTAR")
+                TextButton(onClick = onRechazar, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                    Icon(Icons.Default.Close, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("DESCARTAR")
+                }
+                Spacer(Modifier.width(4.dp))
+                Button(onClick = onAceptar, shape = RoundedCornerShape(8.dp)) {
+                    Icon(Icons.Default.Check, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("ACEPTAR")
                 }
             }
         }
     }
+}
+
+private fun Double.toMoney(): String = (round(this * 100.0) / 100.0).toString()
+
+@Composable
+private fun EditExpenseDialog(gasto: Gasto, onDismiss: () -> Unit, onConfirm: (Gasto) -> Unit) {
+    var description by remember { mutableStateOf(gasto.descripcion) }
+    var amount by remember { mutableStateOf(gasto.monto.toString()) }
+    var category by remember { mutableStateOf(gasto.categoria) }
+    val validAmount = amount.replace(',', '.').toDoubleOrNull()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Corregir gasto") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(description, { description = it }, label = { Text("Descripción") }, singleLine = true)
+                OutlinedTextField(amount, { amount = it }, label = { Text("Monto") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                OutlinedTextField(category, { category = it }, label = { Text("Categoría") }, singleLine = true,
+                    supportingText = { Text("Usa Fijo, Hormiga o Variable") })
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = description.isNotBlank() && category.isNotBlank() && validAmount != null && validAmount > 0,
+                onClick = {
+                    val cleanCategory = category.trim().replaceFirstChar { it.uppercase() }
+                    onConfirm(gasto.copy(
+                        descripcion = description.trim(),
+                        monto = validAmount ?: gasto.monto,
+                        categoria = cleanCategory,
+                        tipo = if (cleanCategory.equals("Hormiga", true)) "Gasto Hormiga" else "Gasto Normal"
+                    ))
+                }
+            ) { Text("Guardar") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+    )
 }

@@ -39,6 +39,14 @@ import androidx.compose.foundation.verticalScroll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.TimeoutCancellationException
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalContext
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import android.util.Patterns
 
 @Composable
 fun AuthScreen(onLoginSuccess: () -> Unit) {
@@ -46,6 +54,7 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
     val focusManager = LocalFocusManager.current
+    val context = LocalContext.current
     
     var isLogin by remember { mutableStateOf(true) }
     var email by remember { mutableStateOf("") }
@@ -64,15 +73,19 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
         onError = { errorMsg = it }
     )
 
-    // Autocomplete city if registering and ciudad is empty
-    LaunchedEffect(isLogin) {
-        if (!isLogin && ciudad.isBlank()) {
-            requestLocation()
-        }
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
+        if (result.values.any { it }) requestLocation()
+        else errorMsg = "Puedes escribir tu ciudad manualmente si no deseas compartir la ubicación."
+    }
+    val requestLocationSafely = {
+        val hasPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (hasPermission) requestLocation()
+        else locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
     }
 
-    // Use a fixed language for AuthScreen or sync with App level if possible.
-    // Here we provide Spanish as default for Auth.
     ProvideStrings(Language.ES) {
         val s = LocalStrings.current
         
@@ -141,7 +154,6 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
                                 onValueChange = { input ->
                                     val digits = input.filter { it.isDigit() }
                                     if (digits.length <= 8) {
-                                        // Validación básica de entrada (Día 0-3, Mes 0-1)
                                         val isValidInput = when (digits.length) {
                                             1 -> digits[0].digitToInt() <= 3
                                             2 -> digits.toInt() in 1..31
@@ -168,7 +180,7 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
                                 onValueChange = { ciudad = it },
                                 label = s.city,
                                 trailingIcon = {
-                                    IconButton(onClick = { requestLocation() }) {
+                                    IconButton(onClick = requestLocationSafely) {
                                         Icon(
                                             imageVector = Icons.Default.MyLocation,
                                             contentDescription = "Get location",
@@ -212,7 +224,8 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
                                 value = confirmPassword,
                                 onValueChange = { confirmPassword = it },
                                 label = s.confirmPassword,
-                                visualTransformation = PasswordVisualTransformation()
+                                visualTransformation = PasswordVisualTransformation(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
                             )
                         }
 
@@ -232,9 +245,12 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
                                 val trimmedEmail = email.trim()
                                 val isRegister = !isLogin
                                 
-                                // 1. Validación de campos vacíos
                                 if (trimmedEmail.isBlank() || password.isBlank()) {
                                     errorMsg = s.fieldsRequired
+                                    return@BounceButton
+                                }
+                                if (!Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()) {
+                                    errorMsg = "Escribe un correo electrónico válido."
                                     return@BounceButton
                                 }
                                 
@@ -243,29 +259,25 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
                                         errorMsg = s.fieldsRequired
                                         return@BounceButton
                                     }
+                                    if (password.length < 6) {
+                                        errorMsg = "La contraseña debe tener al menos 6 caracteres."
+                                        return@BounceButton
+                                    }
 
-                                    // 2. Validación lógica de Fecha de Nacimiento (DD/MM/YYYY)
                                     if (fechaNacimiento.length == 8) {
                                         val day = fechaNacimiento.substring(0, 2).toIntOrNull() ?: 0
                                         val month = fechaNacimiento.substring(2, 4).toIntOrNull() ?: 0
                                         val year = fechaNacimiento.substring(4, 8).toIntOrNull() ?: 0
                                         
-                                        val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
-                                        
-                                        val isDayValid = day in 1..31
-                                        val isMonthValid = month in 1..12
-                                        val isYearValid = year in 1900..currentYear
-                                        
-                                        if (!isDayValid || !isMonthValid || !isYearValid) {
-                                            errorMsg = "FECHA INVÁLIDA (Día 1-31, Mes 1-12, Año > 1900)"
+                                        if (!isValidBirthDate(day, month, year)) {
+                                            errorMsg = "La fecha no existe. Usa el formato DD/MM/AAAA."
                                             return@BounceButton
                                         }
                                     } else {
-                                        errorMsg = "FECHA INCOMPLETA (DDMMYYYY)"
+                                        errorMsg = "Completa la fecha en formato DD/MM/AAAA."
                                         return@BounceButton
                                     }
 
-                                    // 3. Confirmación de contraseña
                                     if (password != confirmPassword) {
                                         errorMsg = s.passwordsMismatch
                                         return@BounceButton
@@ -285,19 +297,17 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
                                                     errorMsg = result.exceptionOrNull()?.message ?: s.invalidCredentials
                                                 }
                                             } else {
-                                                // Para el Registro (Inicializar):
-                                                // Llamamos a signUp. Si se crea la cuenta en Firebase Auth,
-                                                // mandamos al usuario a la App de inmediato.
                                                 val result = authRepository.signUp(trimmedEmail, password, nombre, apellido, fechaNacimiento, ciudad)
                                                 
                                                 if (result.isSuccess) {
                                                     onLoginSuccess()
                                                 } else {
-                                                    val error = result.exceptionOrNull()?.message ?: ""
-                                                    // Si el error es que el usuario ya existe, intentamos loguear
-                                                    if (error.contains("already in use", ignoreCase = true)) {
-                                                        authRepository.login(trimmedEmail, password)
-                                                        onLoginSuccess()
+                                                    val exception = result.exceptionOrNull()
+                                                    val error = exception?.message ?: ""
+                                                    if (exception is FirebaseAuthUserCollisionException || error.contains("already in use", ignoreCase = true)) {
+                                                        val loginResult = authRepository.login(trimmedEmail, password)
+                                                        if (loginResult.isSuccess) onLoginSuccess()
+                                                        else errorMsg = loginResult.exceptionOrNull()?.message ?: s.invalidCredentials
                                                     } else {
                                                         errorMsg = error.ifBlank { s.initializationFailed }
                                                     }
@@ -346,6 +356,20 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+private fun isValidBirthDate(day: Int, month: Int, year: Int): Boolean {
+    val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+    if (year !in 1900..currentYear) return false
+    return try {
+        java.util.GregorianCalendar(year, month - 1, day).apply {
+            isLenient = false
+            time
+        }
+        true
+    } catch (_: IllegalArgumentException) {
+        false
     }
 }
 

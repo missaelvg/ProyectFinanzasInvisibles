@@ -68,11 +68,11 @@ private suspend fun getCityName(context: Context, lat: Double, lon: Double): Str
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             // Blocking version is fine here as we are in Dispatchers.IO
             val addresses = geocoder.getFromLocation(lat, lon, 1)
-            addresses?.firstOrNull()?.locality
+            addresses?.firstOrNull()?.let { it.locality ?: it.subAdminArea ?: it.adminArea }
         } else {
             @Suppress("DEPRECATION")
             val addresses = geocoder.getFromLocation(lat, lon, 1)
-            addresses?.firstOrNull()?.locality
+            addresses?.firstOrNull()?.let { it.locality ?: it.subAdminArea ?: it.adminArea }
         }
     } catch (_: Exception) {
         null

@@ -7,5 +7,6 @@ data class Gasto(
     val categoria: String,
     val tipo: String, // "Gasto Hormiga" o "Gasto Normal"
     val estado: String = "Pendiente", // "Pendiente", "Aceptado", "Rechazado"
-    val fecha: Long = 0L
+    val fecha: Long = 0L,
+    val sincronizado: Boolean = false
 )

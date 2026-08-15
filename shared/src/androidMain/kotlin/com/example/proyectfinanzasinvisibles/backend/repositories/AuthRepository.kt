@@ -2,7 +2,9 @@ package com.example.proyectfinanzasinvisibles.backend.repositories
 
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.firestore.firestore
+import com.google.firebase.firestore.FieldValue
 import kotlinx.coroutines.tasks.await
 
 actual class AuthRepository {
@@ -35,7 +37,12 @@ actual class AuthRepository {
                 "ultimaConexion" to com.google.firebase.Timestamp.now(),
                 "createdAt" to com.google.firebase.Timestamp.now()
             )
-            firestore.collection("users").document(user.uid).set(userData).await()
+            try {
+                firestore.collection("users").document(user.uid).set(userData).await()
+            } catch (e: Exception) {
+                runCatching { user.delete().await() }
+                return Result.failure(e)
+            }
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -47,32 +54,24 @@ actual class AuthRepository {
         return try {
             val uid = auth.currentUser?.uid ?: return 0
             val docRef = firestore.collection("users").document(uid)
-            val doc = docRef.get().await()
-            
-            if (!doc.exists()) return 0
-
-            val ultimaConexion = doc.getTimestamp("ultimaConexion")?.toDate()?.time ?: 0L
-            val rachaActual = (doc.getLong("racha") ?: 0L).toInt()
-            
-            val hoy = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
-            val unDiaMs = 24 * 60 * 60 * 1000L
-            
-            val diff = hoy - ultimaConexion
-            
-            val nuevaRacha = when {
-                diff < unDiaMs -> rachaActual // Ya se conectó hoy o hace menos de 24h
-                diff < 2 * unDiaMs -> rachaActual + 1 // Se conectó ayer, racha continúa
-                else -> 1 // Se perdió la racha, reinicia a 1
-            }
-
-            docRef.update(
-                mapOf(
-                    "racha" to nuevaRacha,
+            firestore.runTransaction { transaction ->
+                val doc = transaction.get(docRef)
+                if (!doc.exists()) return@runTransaction 0
+                val lastMillis = doc.getTimestamp("ultimaConexion")?.toDate()?.time ?: 0L
+                val currentStreak = (doc.getLong("racha") ?: 0L).toInt()
+                val today = dayNumber(System.currentTimeMillis())
+                val lastDay = dayNumber(lastMillis)
+                val newStreak = when (today - lastDay) {
+                    0L -> currentStreak.coerceAtLeast(1)
+                    1L -> currentStreak.coerceAtLeast(0) + 1
+                    else -> 1
+                }
+                transaction.update(docRef, mapOf(
+                    "racha" to newStreak,
                     "ultimaConexion" to com.google.firebase.Timestamp.now()
-                )
-            ).await()
-            
-            nuevaRacha
+                ))
+                newStreak
+            }.await()
         } catch (e: Exception) {
             0
         }
@@ -105,12 +104,24 @@ actual class AuthRepository {
                 user.verifyBeforeUpdateEmail(email).await()
             }
 
-            val updates = mapOf(
+            val updates = mutableMapOf<String, Any>(
                 "nombre" to nombre,
-                "apellido" to apellido,
-                "email" to email
+                "apellido" to apellido
             )
+            if (email != user.email) updates["emailPendiente"] = email
+            else updates["email"] = email
             firestore.collection("users").document(user.uid).update(updates).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    actual suspend fun reauthenticate(currentPassword: String): Result<Unit> {
+        return try {
+            val user = auth.currentUser ?: return Result.failure(Exception("No hay una sesión activa"))
+            val email = user.email ?: return Result.failure(Exception("La cuenta no usa correo electrónico"))
+            user.reauthenticate(EmailAuthProvider.getCredential(email, currentPassword)).await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -129,7 +140,14 @@ actual class AuthRepository {
 
     actual suspend fun login(email: String, password: String): Result<Unit> {
         return try {
-            auth.signInWithEmailAndPassword(email, password).await()
+            val user = auth.signInWithEmailAndPassword(email, password).await().user
+            if (user != null) {
+                runCatching {
+                    firestore.collection("users").document(user.uid).update(
+                        mapOf("email" to (user.email ?: email), "emailPendiente" to FieldValue.delete())
+                    ).await()
+                }
+            }
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -138,5 +156,18 @@ actual class AuthRepository {
 
     actual fun logout() {
         auth.signOut()
+    }
+
+    private fun dayNumber(timestamp: Long): Long {
+        val local = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
+        val normalized = java.util.GregorianCalendar(java.util.TimeZone.getTimeZone("UTC")).apply {
+            clear()
+            set(
+                local.get(java.util.Calendar.YEAR),
+                local.get(java.util.Calendar.MONTH),
+                local.get(java.util.Calendar.DAY_OF_MONTH)
+            )
+        }
+        return normalized.timeInMillis / 86_400_000L
     }
 }
