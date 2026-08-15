@@ -149,6 +149,7 @@ fun App(
         }
     }
 }
+}
 
 @Composable
 fun SettingsScreen(
