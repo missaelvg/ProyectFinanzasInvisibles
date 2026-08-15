@@ -18,8 +18,7 @@ No se utiliza autenticación biométrica. El acceso se realiza con correo y cont
 6. Si no hay red, `SyncGastosWorker` reintenta los registros pendientes.
 7. El usuario acepta, edita o descarta el movimiento desde Historial.
 
-## Funciones alineadas con la Actividad Documental 11
-
+## Funciones 
 - Registro e inicio de sesión con Firebase Auth.
 - Perfil extendido, cambio seguro de correo/contraseña y racha por día calendario.
 - Solicitud explícita de ubicación para sugerir la ciudad durante el registro.
