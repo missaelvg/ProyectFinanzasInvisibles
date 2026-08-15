@@ -1,12 +1,14 @@
 package com.example.proyectfinanzasinvisibles.frontend.ui.screens
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -36,7 +38,10 @@ fun OnboardingScreen(onStartClick: () -> Unit) {
                 Image(
                     painter = painterResource(Res.drawable.logo_finanzas),
                     contentDescription = "Logo",
-                    modifier = Modifier.size(120.dp)
+                    modifier = Modifier
+                        .size(132.dp)
+                        .clip(RoundedCornerShape(34.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(34.dp))
                 )
                 
                 Spacer(modifier = Modifier.height(32.dp))
@@ -45,13 +50,13 @@ fun OnboardingScreen(onStartClick: () -> Unit) {
                     text = "FINANZAS INVISIBLES",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline,
-                    letterSpacing = 6.sp
+                    letterSpacing = 4.sp
                 )
             }
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = "Quiet Intelligence.\nAbsolute Precision.",
+                    text = "Detecta lo pequeño.\nDecide con claridad.",
                     style = MaterialTheme.typography.displayLarge,
                     color = MaterialTheme.colorScheme.onBackground,
                     textAlign = TextAlign.Center,
@@ -61,7 +66,7 @@ fun OnboardingScreen(onStartClick: () -> Unit) {
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Text(
-                    text = "An AI-driven experience that manages your leaks without ever being obtrusive.",
+                    text = "Identifica gastos invisibles, confirma movimientos y convierte fugas en metas reales.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -73,15 +78,15 @@ fun OnboardingScreen(onStartClick: () -> Unit) {
                 onClick = onStartClick,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .height(58.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(16.dp)
             ) {
                 Text(
-                    "INITIALIZE SYSTEM",
+                    "COMENZAR",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold
                 )

@@ -1,6 +1,7 @@
 package com.example.proyectfinanzasinvisibles.frontend.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -57,7 +58,7 @@ fun AlertasScreen() {
                         AlertCard(
                             title = "Alerta de gasto hormiga",
                             description = "Registraste ${gastosHormiga.size} gastos hormiga esta semana por $${gastosHormiga.sumOf { it.monto }.toInt()} MXN.",
-                            color = Color(0xFFFFA292)
+                            color = MaterialTheme.colorScheme.error
                         )
                     }
                 }
@@ -67,7 +68,7 @@ fun AlertasScreen() {
                         AlertCard(
                             title = "Presupuesto Semanal",
                             description = "Tus gastos aceptados de los últimos 7 días suman $${totalSemanal.toInt()} MXN. Revisa el historial antes de seguir gastando.",
-                            color = Color(0xFFFDE68A)
+                            color = MaterialTheme.colorScheme.tertiary
                         )
                     }
                 }
@@ -79,8 +80,9 @@ fun AlertasScreen() {
 @Composable
 fun AlertCard(title: String, description: String, color: Color) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1E)),
-        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -89,7 +91,7 @@ fun AlertCard(title: String, description: String, color: Color) {
             Column {
                 Text(text = title, color = color, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(text = description, color = Color.White, fontSize = 14.sp)
+                Text(text = description, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
             }
         }
     }

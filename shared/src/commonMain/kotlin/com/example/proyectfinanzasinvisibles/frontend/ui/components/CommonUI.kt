@@ -21,7 +21,7 @@ fun BounceButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    shape: RoundedCornerShape = RoundedCornerShape(12.dp),
+    shape: RoundedCornerShape = RoundedCornerShape(16.dp),
     colors: ButtonColors = ButtonDefaults.buttonColors(),
     content: @Composable RowScope.() -> Unit
 ) {
@@ -42,7 +42,7 @@ fun BounceButton(
         shape = shape,
         colors = colors,
         interactionSource = interactionSource,
-        contentPadding = PaddingValues(0.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
         content = content
     )
 }

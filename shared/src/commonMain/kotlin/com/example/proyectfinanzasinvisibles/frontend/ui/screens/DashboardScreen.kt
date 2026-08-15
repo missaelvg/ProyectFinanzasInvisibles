@@ -1,6 +1,7 @@
 package com.example.proyectfinanzasinvisibles.frontend.ui.screens
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -9,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -64,7 +66,7 @@ fun DashboardScreen(onOpenAlerts: () -> Unit = {}) {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(scrollState)
-            .padding(16.dp)
+            .padding(horizontal = 20.dp, vertical = 12.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -75,7 +77,7 @@ fun DashboardScreen(onOpenAlerts: () -> Unit = {}) {
                 Image(
                     painter = painterResource(Res.drawable.logo_finanzas),
                     contentDescription = "Logo FI",
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(42.dp).clip(RoundedCornerShape(13.dp))
                 )
 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -96,22 +98,30 @@ fun DashboardScreen(onOpenAlerts: () -> Unit = {}) {
                 }
             }
 
-            IconButton(onClick = onOpenAlerts) {
-                Icon(
-                    Icons.Default.Notifications,
-                    contentDescription = "Abrir alertas",
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
+            Surface(
+                onClick = onOpenAlerts,
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.Notifications,
+                        contentDescription = "Abrir alertas",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(21.dp)
+                    )
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         Text(
             text = s.dashboard,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.outline,
-            letterSpacing = 2.sp
+            letterSpacing = 1.6.sp
         )
 
         Row(
@@ -128,14 +138,28 @@ fun DashboardScreen(onOpenAlerts: () -> Unit = {}) {
             )
             
             if (streak > 0) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("🔥", fontSize = 24.sp)
-                    Text(
-                        text = "$streak DÍAS",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Bolt,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = "$streak DÍAS",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
                 }
             }
         }
@@ -203,7 +227,8 @@ fun GastoHormigaCard(monto: Double, porcentaje: Float) {
     val s = LocalStrings.current
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(22.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(24.dp)) {
@@ -219,8 +244,8 @@ fun GastoHormigaCard(monto: Double, porcentaje: Float) {
 
                 Box(
                     modifier = Modifier
-                        .size(8.dp)
-                        .background(MaterialTheme.colorScheme.primary, CircleShape)
+                        .size(9.dp)
+                        .background(MaterialTheme.colorScheme.tertiary, CircleShape)
                 )
             }
 
@@ -255,9 +280,9 @@ fun GastoHormigaCard(monto: Double, porcentaje: Float) {
                 progress = { porcentaje.coerceIn(0f, 1f) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(2.dp)
-                    .clip(RoundedCornerShape(1.dp)),
-                color = MaterialTheme.colorScheme.primary,
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp)),
+                color = MaterialTheme.colorScheme.tertiary,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
         }
@@ -269,7 +294,8 @@ fun DeteccionInteligenteCard(gasto: Gasto, onAction: (String) -> Unit) {
     val s = LocalStrings.current
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(22.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -291,7 +317,7 @@ fun DeteccionInteligenteCard(gasto: Gasto, onAction: (String) -> Unit) {
             )
             
             Text(
-                text = "¿Es un gasto necesario o una fuga?",
+                text = "Revisa la información antes de guardarla.",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.outline
             )
@@ -302,11 +328,11 @@ fun DeteccionInteligenteCard(gasto: Gasto, onAction: (String) -> Unit) {
                 BounceButton(
                     onClick = { onAction("Aceptado") },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.height(40.dp).weight(1f)
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.height(46.dp).weight(1f)
                 ) {
                     Text(
-                        text = "ES FUGA",
+                        text = "CONFIRMAR",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimary
@@ -315,12 +341,15 @@ fun DeteccionInteligenteCard(gasto: Gasto, onAction: (String) -> Unit) {
                 
                 BounceButton(
                     onClick = { onAction("Rechazado") },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.height(40.dp).weight(1f)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.height(46.dp).weight(1f)
                 ) {
                     Text(
-                        text = "IGNORAR",
+                        text = "DESCARTAR",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -339,11 +368,18 @@ fun DistribucionFugasCard(total: Double, gastos: List<Gasto>) {
         categorias.map { (it.value.sumOf { g -> g.monto } / total).toFloat() }
     } else listOf(1f)
     
-    val colors = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.outline, MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.outlineVariant, Color.DarkGray)
+    val colors = listOf(
+        MaterialTheme.colorScheme.tertiary,
+        MaterialTheme.colorScheme.primary,
+        MaterialTheme.colorScheme.secondary,
+        MaterialTheme.colorScheme.error,
+        MaterialTheme.colorScheme.outline
+    )
 
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(22.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(24.dp)) {
@@ -432,10 +468,14 @@ fun RecentItem(title: String, category: String, amount: String, time: String) {
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
-                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
+                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Box(modifier = Modifier.size(16.dp).background(MaterialTheme.colorScheme.outline, CircleShape))
+                Text(
+                    text = category.trim().take(1).uppercase(),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
 
             Spacer(modifier = Modifier.width(16.dp))

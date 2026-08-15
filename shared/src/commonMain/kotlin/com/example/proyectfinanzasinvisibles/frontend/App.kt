@@ -1,7 +1,9 @@
 package com.example.proyectfinanzasinvisibles.frontend
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
@@ -11,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
@@ -89,33 +92,39 @@ fun App(
                         }
                     },
                     bottomBar = {
-                        NavigationBar(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                            contentColor = MaterialTheme.colorScheme.onSurface,
-                            tonalElevation = 0.dp
-                        ) {
-                            val navItems = listOf(
-                                Triple(Screen.Home, s.home, Icons.Default.Home),
-                                Triple(Screen.History, s.history, Icons.Default.History),
-                                Triple(Screen.Goals, s.goals, Icons.Default.TrackChanges),
-                                Triple(Screen.Analisis, s.ai, Icons.Default.AutoAwesome),
-                                Triple(Screen.Settings, s.settings, Icons.Default.Settings)
-                            )
-                            
-                            navItems.forEach { (screen, label, icon) ->
-                                NavigationBarItem(
-                                    selected = currentScreen == screen,
-                                    onClick = { currentScreen = screen },
-                                    icon = { Icon(icon, contentDescription = label, modifier = Modifier.size(24.dp)) },
-                                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                                        unselectedIconColor = MaterialTheme.colorScheme.outline,
-                                        unselectedTextColor = MaterialTheme.colorScheme.outline,
-                                        indicatorColor = Color.Transparent
-                                    )
+                        Surface(color = MaterialTheme.colorScheme.background) {
+                            NavigationBar(
+                                modifier = Modifier
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                                    .clip(RoundedCornerShape(24.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(24.dp)),
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                contentColor = MaterialTheme.colorScheme.onSurface,
+                                tonalElevation = 0.dp
+                            ) {
+                                val navItems = listOf(
+                                    Triple(Screen.Home, s.home, Icons.Default.Home),
+                                    Triple(Screen.History, s.history, Icons.Default.History),
+                                    Triple(Screen.Goals, s.goals, Icons.Default.TrackChanges),
+                                    Triple(Screen.Analisis, s.ai, Icons.Default.AutoAwesome),
+                                    Triple(Screen.Settings, s.settings, Icons.Default.Settings)
                                 )
+
+                                navItems.forEach { (screen, label, icon) ->
+                                    NavigationBarItem(
+                                        selected = currentScreen == screen,
+                                        onClick = { currentScreen = screen },
+                                        icon = { Icon(icon, contentDescription = label, modifier = Modifier.size(23.dp)) },
+                                        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                                            selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                            unselectedIconColor = MaterialTheme.colorScheme.outline,
+                                            unselectedTextColor = MaterialTheme.colorScheme.outline,
+                                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                                        )
+                                    )
+                                }
                             }
                         }
                     }
@@ -183,7 +192,7 @@ fun SettingsScreen(
             color = MaterialTheme.colorScheme.onBackground
         )
         
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         Text(
             text = s.language,
@@ -212,11 +221,11 @@ fun SettingsScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         BounceButton(
             onClick = onEditProfile,
-            modifier = Modifier.fillMaxWidth().height(56.dp),
+            modifier = Modifier.fillMaxWidth().height(58.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 contentColor = MaterialTheme.colorScheme.onSurface
@@ -231,7 +240,7 @@ fun SettingsScreen(
 
         BounceButton(
             onClick = onConfiguracion,
-            modifier = Modifier.fillMaxWidth().height(56.dp),
+            modifier = Modifier.fillMaxWidth().height(58.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 contentColor = MaterialTheme.colorScheme.onSurface
@@ -246,7 +255,7 @@ fun SettingsScreen(
         
         BounceButton(
             onClick = onLogout,
-            modifier = Modifier.fillMaxWidth().height(56.dp),
+            modifier = Modifier.fillMaxWidth().height(58.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.errorContainer,
                 contentColor = MaterialTheme.colorScheme.onErrorContainer
@@ -268,7 +277,7 @@ fun LanguageButton(label: String, isSelected: Boolean, onClick: () -> Unit, modi
             containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
             contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
         ),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+        shape = RoundedCornerShape(14.dp)
     ) {
         Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
     }

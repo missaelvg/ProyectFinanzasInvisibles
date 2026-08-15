@@ -1,6 +1,7 @@
 package com.example.proyectfinanzasinvisibles.frontend.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,7 +15,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -47,7 +47,7 @@ fun HistoryScreen() {
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(horizontal = 20.dp, vertical = 12.dp)
     ) {
         Text(s.history, style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.onBackground)
         Spacer(Modifier.height(24.dp))
@@ -102,16 +102,17 @@ fun PendingExpenseCard(
     onEditar: () -> Unit
 ) {
     val isHormiga = gasto.tipo == "Gasto Hormiga"
-    val badgeColor = if (isHormiga) Color(0xFFFF8A65) else Color(0xFF64B5F6)
+    val badgeColor = if (isHormiga) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
-                    Surface(color = badgeColor.copy(alpha = 0.14f), shape = RoundedCornerShape(4.dp)) {
+                    Surface(color = badgeColor.copy(alpha = 0.14f), shape = RoundedCornerShape(10.dp)) {
                         Text(gasto.tipo.uppercase(), color = badgeColor, fontSize = 10.sp, fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                     }
@@ -131,7 +132,7 @@ fun PendingExpenseCard(
                     Icon(Icons.Default.Close, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("DESCARTAR")
                 }
                 Spacer(Modifier.width(4.dp))
-                Button(onClick = onAceptar, shape = RoundedCornerShape(8.dp)) {
+                Button(onClick = onAceptar, shape = RoundedCornerShape(14.dp)) {
                     Icon(Icons.Default.Check, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("ACEPTAR")
                 }
             }

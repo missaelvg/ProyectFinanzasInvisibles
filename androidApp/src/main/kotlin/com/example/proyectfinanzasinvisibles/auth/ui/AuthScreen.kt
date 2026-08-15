@@ -3,13 +3,14 @@ package com.example.proyectfinanzasinvisibles.auth.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -103,7 +104,7 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(scrollState)
-                        .padding(24.dp),
+                        .padding(horizontal = 24.dp, vertical = 20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
@@ -112,15 +113,18 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
                         painter = painterResource(id = R.drawable.logo_finanzas),
                         contentDescription = "Logo FI",
                         modifier = Modifier
-                            .size(80.dp)
-                            .padding(bottom = 24.dp)
+                            .size(96.dp)
+                            .clip(RoundedCornerShape(26.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(26.dp))
                     )
+
+                    Spacer(modifier = Modifier.height(22.dp))
 
                     Text(
                         text = s.appName,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.outline,
-                        letterSpacing = 4.sp
+                        letterSpacing = 2.8.sp
                     )
                     
                     Spacer(modifier = Modifier.height(8.dp))
@@ -129,7 +133,7 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
                         text = if (isLogin) s.login else s.initialize,
                         style = MaterialTheme.typography.headlineLarge,
                         color = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.padding(bottom = 40.dp)
+                        modifier = Modifier.padding(bottom = 32.dp)
                     )
 
                     Column(
@@ -323,13 +327,13 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
                                     }
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            modifier = Modifier.fillMaxWidth().height(58.dp),
                             enabled = !isLoading,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary
                             ),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(16.dp)
                         ) {
                             if (isLoading) {
                                 CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
@@ -393,19 +397,25 @@ fun StealthTextField(
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
-            placeholder = { if (placeholder.isNotEmpty()) Text(placeholder, color = Color.DarkGray) },
-            modifier = Modifier.fillMaxWidth().background(Color(0xFF090909), RoundedCornerShape(8.dp)),
+            placeholder = {
+                if (placeholder.isNotEmpty()) {
+                    Text(placeholder, color = MaterialTheme.colorScheme.outline)
+                }
+            },
+            modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp)),
             visualTransformation = visualTransformation,
             keyboardOptions = keyboardOptions,
             trailingIcon = trailingIcon,
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(16.dp),
             singleLine = true,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                 cursorColor = MaterialTheme.colorScheme.primary,
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface
             )
         )
     }
